@@ -1,111 +1,170 @@
+import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/server'
-import type { CombinacionCatalogo } from '@/types/bazzar'
+import type { StockWebItem } from '@/types/bazzar'
+import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
+import { FiltrosCatalogo } from './FiltrosCatalogo'
+import { getFiltros } from '@/lib/filtros'
 
 export const revalidate = 60
+const BUCKET = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/productos`
 
-export default async function CatalogoPage() {
+interface Props {
+  searchParams: { marca?: string; estilo?: string; colores?: string }
+}
+
+export default async function CatalogoPage({ searchParams }: Props) {
+  const { marca: marcaFiltro, estilo: estiloFiltro, colores: coloresFiltroRaw } = searchParams
+  const coloresFiltro = coloresFiltroRaw
+    ? coloresFiltroRaw.split(',').map(c => c.toLowerCase()).filter(Boolean)
+    : []
+
   const supabase = await createClient()
-  const { data: productos } = await supabase
-    .from('v_catalogo_web')
+  const { data, error } = await supabase
+    .from('v_stock_web')
     .select('*')
-    .gt('stock_web', 0)
-    .order('referencia_codigo')
+    .order('marca').order('linea_codigo').order('referencia_codigo').order('talla_orden')
 
-  const agrupados = agrupar(productos ?? [])
+  if (error) console.error('[catalogo]', error.message)
+
+  const allRows = data ?? []
+
+  // Obtener filtros con mapas FK desde tablas maestras
+  const filtros = await getFiltros(supabase)
+  const todasMarcas = filtros?.todasMarcas || []
+  const todosEstilos = filtros?.todosEstilos || []
+
+  // Colores desde v_stock_web (no hay tabla maestra de colores con FK aún)
+  const { data: coloresData } = await supabase
+    .from('v_stock_web')
+    .select('color_nombre')
+    .gt('stock_web', 0)
+    .not('color_nombre', 'is', null)
+    .order('color_nombre')
+
+  const todosColores = Array.from(new Set(
+    (coloresData ?? [])
+      .map(c => c.color_nombre)
+      .filter(c => c && c.trim() !== '')
+  )).sort()
+
+  // Filtrar usando FK (mapas texto → lineas)
+  let rowsFiltradas = [...allRows]
+
+  if (marcaFiltro && filtros?.marcaLineasMap[marcaFiltro]) {
+    const lineasValidas = new Set(filtros.marcaLineasMap[marcaFiltro])
+    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_codigo))
+  }
+
+  if (estiloFiltro && filtros?.estiloLineasMap[estiloFiltro]) {
+    const lineasValidas = new Set(filtros.estiloLineasMap[estiloFiltro])
+    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_codigo))
+  }
+
+  const todos = agruparProductos(rowsFiltradas)
+  let productos = todos
+
+  // Filtro de color (aplica a nivel de producto agrupado)
+  if (coloresFiltro.length) {
+    productos = productos
+      .map(p => {
+        const variantesMatch = p.variantes.filter(v =>
+          coloresFiltro.some(cf => v.color_nombre.toLowerCase().includes(cf))
+        )
+        if (variantesMatch.length === 0) return null
+        const variantesNoMatch = p.variantes.filter(v =>
+          !coloresFiltro.some(cf => v.color_nombre.toLowerCase().includes(cf))
+        )
+        return { ...p, variantes: [...variantesMatch, ...variantesNoMatch] }
+      })
+      .filter((p): p is ProductoAgrupado => p !== null)
+  }
+
+  const totalPares = productos.reduce((s, p) =>
+    s + p.variantes.reduce((sv, v) => sv + v.tallas.reduce((st, t) => st + t.stock, 0), 0), 0)
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-2">Catálogo</h1>
-      <p className="text-gray-500 mb-8">{agrupados.length} productos disponibles</p>
-      {agrupados.length === 0 ? (
-        <div className="text-center py-24 text-gray-400">
-          <p className="text-5xl mb-4">🛍️</p>
-          <p>Próximamente nuevos productos</p>
+      <Suspense>
+        <FiltrosCatalogo
+          marcas={todasMarcas}
+          estilos={todosEstilos.map((e, i) => ({ id: i, nombre: e }))}
+          colores={todosColores}
+          totalModelos={productos.length}
+          totalPares={totalPares}
+        />
+      </Suspense>
+
+      {productos.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-40 text-center">
+          <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mb-5"
+               style={{ backgroundColor: '#f1f5f9' }}>🔍</div>
+          <p className="font-extrabold text-xl mb-2" style={{ color: '#1E3A5F' }}>
+            Sin resultados
+          </p>
+          <p className="text-sm text-slate-400 mb-6 max-w-xs">
+            No encontramos modelos con esos filtros. Probá con otras opciones.
+          </p>
+          <a href="/catalogo"
+             className="text-sm font-bold px-6 py-3 rounded-xl text-white transition-all"
+             style={{ backgroundColor: '#F97316' }}>
+            Ver todo el catálogo
+          </a>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {agrupados.map(p => <ProductoCard key={p.key} producto={p} />)}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {productos.map(p => <ProductoCard key={p.key} producto={p} />)}
         </div>
       )}
     </div>
   )
 }
 
-function buildImageUrl(item: CombinacionCatalogo): string | null {
-  if (!item.imagen_bucket || !item.imagen_formula) return null
-  return item.imagen_bucket + '/' + item.imagen_formula
-    .replace('{linea}', item.linea_codigo)
-    .replace('{referencia}', item.referencia_codigo)
-    .replace('{material}', item.material_codigo)
-    .replace('{color}', item.color_codigo)
-}
+/* ─── Agrupación: linea + referencia + material → variantes de color ─── */
+function agruparProductos(items: StockWebItem[]): ProductoAgrupado[] {
+  const prodMap = new Map<string, ProductoAgrupado>()
+  const varMap  = new Map<string, Map<number, Variante>>()
 
-interface Agrupado {
-  key: string
-  referencia_codigo: string
-  referencia_descripcion: string | null
-  linea_descripcion: string | null
-  color_nombre: string
-  hex_web: string | null
-  precio_web: number | null
-  imagen_url: string | null
-  tallas: string[]
-}
-
-function agrupar(items: CombinacionCatalogo[]): Agrupado[] {
-  const mapa = new Map<string, Agrupado>()
   for (const item of items) {
-    const key = `${item.referencia_codigo}-${item.color_codigo}`
-    if (!mapa.has(key)) {
-      mapa.set(key, {
-        key,
-        referencia_codigo: item.referencia_codigo,
+    const prodKey = `${item.linea_codigo}-${item.referencia_codigo}-${item.id_material_f9}`
+
+    if (!prodMap.has(prodKey)) {
+      prodMap.set(prodKey, {
+        key:                    prodKey,
+        linea_codigo:           item.linea_codigo,
+        referencia_codigo:      item.referencia_codigo,
         referencia_descripcion: item.referencia_descripcion,
-        linea_descripcion: item.linea_descripcion,
+        material_descripcion:   item.material_descripcion,
+        marca:                  item.marca,
+        precio_web:             item.precio_web,
+        estilo:                 item.estilo ?? null,
+        estilo_id:              item.estilo_id ?? null,
+        variantes:              [],
+      })
+      varMap.set(prodKey, new Map())
+    }
+
+    // Para URL: usar codigo_proveedor (string) si está disponible, sino ID (number)
+    const materialKeyStr = String(item.material_code ?? item.material_id)
+    const colorKeyStr = String(item.color_code ?? item.color_id)
+
+    // Para Map: usar id_color_f9 como number
+    const colorKeyNum = item.color_id
+    const colorMap = varMap.get(prodKey)!
+    if (!colorMap.has(colorKeyNum)) {
+      colorMap.set(colorKeyNum, {
+        id_color_f9:  colorKeyNum,
         color_nombre: item.color_nombre,
-        hex_web: item.hex_web,
-        precio_web: item.precio_web,
-        imagen_url: buildImageUrl(item),
-        tallas: [],
+        hex_web:      item.hex_web,
+        imagen_url:   `${BUCKET}/${item.linea_codigo}-${item.referencia_codigo}-${materialKeyStr}-${colorKeyStr}.jpg`,
+        tallas:       [],
       })
     }
-    mapa.get(key)!.tallas.push(item.talla_codigo)
+    colorMap.get(colorKeyNum)!.tallas.push({ combinacion_id: item.combinacion_id, codigo: item.talla_codigo, orden: item.talla_orden, stock: item.stock_web })
   }
-  return Array.from(mapa.values())
-}
 
-function ProductoCard({ producto }: { producto: Agrupado }) {
-  const precio = producto.precio_web
-    ? new Intl.NumberFormat('es-PY').format(producto.precio_web)
-    : null
-  return (
-    <div className="card group cursor-pointer hover:shadow-md transition-shadow">
-      <div className="aspect-square bg-gray-100 relative overflow-hidden">
-        {producto.imagen_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={producto.imagen_url} alt={producto.referencia_descripcion ?? producto.referencia_codigo}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">👟</div>
-        )}
-        {producto.hex_web && (
-          <div className="absolute top-2 right-2 w-5 h-5 rounded-full border-2 border-white shadow"
-            style={{ backgroundColor: producto.hex_web }} title={producto.color_nombre} />
-        )}
-      </div>
-      <div className="p-3">
-        <p className="text-xs text-gray-400 uppercase tracking-wide">{producto.linea_descripcion ?? ''}</p>
-        <p className="font-semibold text-gray-900 text-sm mt-0.5 truncate">
-          {producto.referencia_descripcion ?? producto.referencia_codigo}
-        </p>
-        <p className="text-xs text-gray-500 mt-1">{producto.color_nombre}</p>
-        <div className="flex items-center justify-between mt-2">
-          {precio
-            ? <p className="font-bold text-amber-600">Gs. {precio}</p>
-            : <p className="text-gray-400 text-sm">Consultar</p>}
-          <p className="text-xs text-gray-400">{producto.tallas.length} talles</p>
-        </div>
-      </div>
-    </div>
-  )
+  return Array.from(prodMap.values()).map(p => {
+    p.variantes = Array.from(varMap.get(p.key)!.values())
+    p.variantes.forEach(v => v.tallas.sort((a: Talla, b: Talla) => a.orden - b.orden))
+    return p
+  })
 }
