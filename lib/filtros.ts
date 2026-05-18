@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export interface SectionData {
   label:   string
-  lineas:  string[]
+  lineas:  number[]
   marcas:  string[]
   estilos: string[]
   tipos:   string[]
@@ -16,57 +16,60 @@ export interface HeaderData {
 }
 
 export async function getFiltros(supabase: SupabaseClient) {
-  // Paso 1: Obtener todos los productos con stock
+  // Paso 1: Obtener todos los productos con stock — claves numéricas (linea_id, genero_id, grupo_estilo_id).
   const { data: stockData } = await supabase
     .from('v_stock_web')
-    .select('linea_codigo, marca')
+    .select('linea_id, marca, genero_id, descp_genero, grupo_estilo_id, descp_grupo_estilo')
     .gt('stock_web', 0)
 
   if (!stockData) return null
 
-  const lineasCodigos = [...new Set(stockData.map(item => item.linea_codigo))]
+  const lineaIds = Array.from(new Set(stockData.map(item => item.linea_id)))
 
-  // Paso 2: Obtener metadata desde tabla linea
+  // Paso 2: Obtener metadata desde tabla linea (marca y género desde maestros).
   const { data: lineasData } = await supabase
     .from('linea')
     .select('id, codigo_proveedor, genero_id, marca_id, genero(codigo, descripcion), marca_v2(descp_marca)')
-    .in('codigo_proveedor', lineasCodigos)
+    .in('id', lineaIds)
     .not('genero_id', 'is', null)
 
-  const lineaMetaMap = new Map<string, any>()
+  const lineaMetaMap = new Map<number, any>()
   for (const item of lineasData ?? []) {
     const genObj = item.genero as any
     const marcaObj = item.marca_v2 as any
 
-    lineaMetaMap.set(String(item.codigo_proveedor), {
-      linea_id: item.id,
-      genero: genObj?.codigo,
-      generoLabel: genObj?.descripcion,
-      marca: marcaObj?.descp_marca
+    lineaMetaMap.set(Number(item.id), {
+      linea_id: Number(item.id),
+      linea_codigo: String(item.codigo_proveedor),
+      genero_id: Number(item.genero_id),
+      genero_codigo: genObj?.codigo,
+      descp_genero: genObj?.descripcion,
+      descp_marca: marcaObj?.descp_marca,
     })
   }
 
-  // Paso 3: Obtener estilos y tipos desde linea_referencia (FK a grupo_estilo_v2)
-  const lineaIds = (lineasData ?? []).map(l => l.id)
+  // Paso 3: Estilos / tipos desde linea_referencia (FK a grupo_estilo_v2 y tipo_1).
   const { data: estilosData } = await supabase
     .from('linea_referencia')
-    .select('linea_id, grupo_estilo_id, tipo_1, grupo_estilo_v2(descp_grupo_estilo)')
+    .select('linea_id, grupo_estilo_id, tipo_1_id, descp_grupo_estilo, descp_tipo_1, grupo_estilo_v2(descp_grupo_estilo), tipo_1(descp_tipo_1)')
     .in('linea_id', lineaIds)
     .not('grupo_estilo_id', 'is', null)
 
-  const estiloMap = new Map<number, { estilos: Set<string>, tipos: Set<string> }>()
+  const estiloMap = new Map<number, { estilos: Set<string>; tipos: Set<string> }>()
   for (const e of estilosData ?? []) {
     if (!estiloMap.has(e.linea_id)) estiloMap.set(e.linea_id, { estilos: new Set(), tipos: new Set() })
 
     const grupoEstiloObj = e.grupo_estilo_v2 as any
-    const descp_estilo = grupoEstiloObj?.descp_grupo_estilo
+    const tipo1Obj = e.tipo_1 as any
+    const descp_estilo = grupoEstiloObj?.descp_grupo_estilo ?? e.descp_grupo_estilo
     if (descp_estilo) estiloMap.get(e.linea_id)!.estilos.add(descp_estilo)
 
-    if (e.tipo_1) estiloMap.get(e.linea_id)!.tipos.add(e.tipo_1)
+    const descp_tipo_1 = tipo1Obj?.descp_tipo_1 ?? e.descp_tipo_1
+    if (descp_tipo_1) estiloMap.get(e.linea_id)!.tipos.add(descp_tipo_1)
   }
 
-  // Agrupar por género
-  const init = () => ({ label: '', lineas: new Set<string>(), marcas: new Set<string>(), estilos: new Set<string>(), tipos: new Set<string>() })
+  // Agrupar por género (texto canónico desde maestro)
+  const init = () => ({ label: '', lineas: new Set<number>(), marcas: new Set<string>(), estilos: new Set<string>(), tipos: new Set<string>() })
   const mujeres = init()
   const ninas = init()
   const ninos = init()
@@ -76,79 +79,78 @@ export async function getFiltros(supabase: SupabaseClient) {
   const todosEstilos = new Set<string>()
   const todosTipos = new Set<string>()
 
-  // Mapas para filtrado por FK: texto → lineas que lo contienen
-  const marcaToLineas = new Map<string, Set<string>>()
-  const estiloToLineas = new Map<string, Set<string>>()
-  const tipoToLineas = new Map<string, Set<string>>()
+  // Mapas para filtrado por FK: texto → linea_ids que lo contienen
+  const marcaToLineas = new Map<string, Set<number>>()
+  const estiloToLineas = new Map<string, Set<number>>()
+  const tipoToLineas = new Map<string, Set<number>>()
 
   for (const item of stockData) {
-    const linea = String(item.linea_codigo)
-    const meta = lineaMetaMap.get(linea)
-    const genero = meta?.genero
-    const marca = meta?.marca
+    const lineaId = Number(item.linea_id)
+    const meta = lineaMetaMap.get(lineaId)
+    const generoCodigo = meta?.genero_codigo
+    const descpMarca = meta?.descp_marca ?? item.marca
 
-    if (!genero) continue
+    if (!generoCodigo) continue
 
     const processSection = (section: any) => {
-      section.lineas.add(linea)
-      if (marca) {
-        section.marcas.add(marca)
-        todasMarcas.add(marca)
-        if (!marcaToLineas.has(marca)) marcaToLineas.set(marca, new Set())
-        marcaToLineas.get(marca)!.add(linea)
+      section.lineas.add(lineaId)
+      if (descpMarca) {
+        section.marcas.add(descpMarca)
+        todasMarcas.add(descpMarca)
+        if (!marcaToLineas.has(descpMarca)) marcaToLineas.set(descpMarca, new Set())
+        marcaToLineas.get(descpMarca)!.add(lineaId)
       }
-      if (meta?.linea_id && estiloMap.has(meta.linea_id)) {
-        const rel = estiloMap.get(meta.linea_id)!
+      if (estiloMap.has(lineaId)) {
+        const rel = estiloMap.get(lineaId)!
         rel.estilos.forEach(e => {
           section.estilos.add(e)
           todosEstilos.add(e)
           if (!estiloToLineas.has(e)) estiloToLineas.set(e, new Set())
-          estiloToLineas.get(e)!.add(linea)
+          estiloToLineas.get(e)!.add(lineaId)
         })
         rel.tipos.forEach(t => {
           section.tipos.add(t)
           todosTipos.add(t)
           if (!tipoToLineas.has(t)) tipoToLineas.set(t, new Set())
-          tipoToLineas.get(t)!.add(linea)
+          tipoToLineas.get(t)!.add(lineaId)
         })
       }
     }
 
-    if (genero === 'DAMAS') {
+    if (generoCodigo === 'DAMAS') {
       processSection(mujeres)
-      if (!mujeres.label) mujeres.label = meta?.generoLabel || 'Damas'
-    } else if (genero === 'NINAS') {
+      if (!mujeres.label) mujeres.label = meta?.descp_genero || 'Damas'
+    } else if (generoCodigo === 'NINAS' || generoCodigo === 'NIÑAS') {
       processSection(ninas)
-      if (!ninas.label) ninas.label = meta?.generoLabel || 'Niñas'
-    } else if (genero === 'NINOS') {
+      if (!ninas.label) ninas.label = meta?.descp_genero || 'Niñas'
+    } else if (generoCodigo === 'NINOS' || generoCodigo === 'NIÑOS') {
       processSection(ninos)
-      if (!ninos.label) ninos.label = meta?.generoLabel || 'Niños'
-    } else if (genero === 'CABALLEROS') {
+      if (!ninos.label) ninos.label = meta?.descp_genero || 'Niños'
+    } else if (generoCodigo === 'CABALLEROS') {
       processSection(hombres)
-      if (!hombres.label) hombres.label = meta?.generoLabel || 'Caballeros'
+      if (!hombres.label) hombres.label = meta?.descp_genero || 'Caballeros'
     }
   }
 
   const formatSection = (s: any): SectionData => ({
     label:   s.label,
-    lineas:  Array.from(s.lineas).sort() as string[],
+    lineas:  Array.from(s.lineas).sort() as number[],
     marcas:  Array.from(s.marcas).sort() as string[],
     estilos: Array.from(s.estilos).sort() as string[],
     tipos:   Array.from(s.tipos).sort() as string[]
   })
 
-  // Convertir mapas a objetos simples para facilitar lookup
-  const marcaLineasMap: Record<string, string[]> = {}
+  const marcaLineasMap: Record<string, number[]> = {}
   marcaToLineas.forEach((lineas, marca) => {
     marcaLineasMap[marca] = Array.from(lineas)
   })
 
-  const estiloLineasMap: Record<string, string[]> = {}
+  const estiloLineasMap: Record<string, number[]> = {}
   estiloToLineas.forEach((lineas, estilo) => {
     estiloLineasMap[estilo] = Array.from(lineas)
   })
 
-  const tipoLineasMap: Record<string, string[]> = {}
+  const tipoLineasMap: Record<string, number[]> = {}
   tipoToLineas.forEach((lineas, tipo) => {
     tipoLineasMap[tipo] = Array.from(lineas)
   })
@@ -160,11 +162,11 @@ export async function getFiltros(supabase: SupabaseClient) {
       ninos:   formatSection(ninos),
       hombres: formatSection(hombres)
     },
-    todasLineas:  Array.from(lineasCodigos).sort(),
+    todasLineas:  Array.from(lineaIds).sort((a, b) => a - b),
     todasMarcas:  Array.from(todasMarcas).sort(),
     todosEstilos: Array.from(todosEstilos).sort(),
     todosTipos:   Array.from(todosTipos).sort(),
-    // Mapas para filtrado por FK (texto → lineas)
+    // Mapas texto → linea_id (bigint)
     marcaLineasMap,
     estiloLineasMap,
     tipoLineasMap

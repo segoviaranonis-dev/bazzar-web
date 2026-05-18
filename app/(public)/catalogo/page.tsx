@@ -9,11 +9,11 @@ export const revalidate = 60
 const BUCKET = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/productos`
 
 interface Props {
-  searchParams: { marca?: string; estilo?: string; colores?: string }
+  searchParams: { marca?: string; grupo_estilo?: string; colores?: string }
 }
 
 export default async function CatalogoPage({ searchParams }: Props) {
-  const { marca: marcaFiltro, estilo: estiloFiltro, colores: coloresFiltroRaw } = searchParams
+  const { marca: marcaFiltro, grupo_estilo: estiloFiltro, colores: coloresFiltroRaw } = searchParams
   const coloresFiltro = coloresFiltroRaw
     ? coloresFiltroRaw.split(',').map(c => c.toLowerCase()).filter(Boolean)
     : []
@@ -52,12 +52,12 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   if (marcaFiltro && filtros?.marcaLineasMap[marcaFiltro]) {
     const lineasValidas = new Set(filtros.marcaLineasMap[marcaFiltro])
-    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_codigo))
+    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_id))
   }
 
   if (estiloFiltro && filtros?.estiloLineasMap[estiloFiltro]) {
     const lineasValidas = new Set(filtros.estiloLineasMap[estiloFiltro])
-    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_codigo))
+    rowsFiltradas = rowsFiltradas.filter(r => lineasValidas.has(r.linea_id))
   }
 
   const todos = agruparProductos(rowsFiltradas)
@@ -125,37 +125,38 @@ function agruparProductos(items: StockWebItem[]): ProductoAgrupado[] {
   const varMap  = new Map<string, Map<number, Variante>>()
 
   for (const item of items) {
-    const prodKey = `${item.linea_codigo}-${item.referencia_codigo}-${item.id_material_f9}`
+    const prodKey = `${item.linea_id}-${item.referencia_id}-${item.id_material_f9}`
 
     if (!prodMap.has(prodKey)) {
       prodMap.set(prodKey, {
         key:                    prodKey,
+        linea_id:               item.linea_id,
         linea_codigo:           item.linea_codigo,
+        referencia_id:          item.referencia_id,
         referencia_codigo:      item.referencia_codigo,
         referencia_descripcion: item.referencia_descripcion,
         material_descripcion:   item.material_descripcion,
         marca:                  item.marca,
         precio_web:             item.precio_web,
-        estilo:                 item.estilo ?? null,
-        estilo_id:              item.estilo_id ?? null,
+        descp_grupo_estilo:     item.descp_grupo_estilo ?? null,
+        grupo_estilo_id:        item.grupo_estilo_id ?? null,
         variantes:              [],
       })
       varMap.set(prodKey, new Map())
     }
 
-    // Para URL: usar codigo_proveedor (string) si está disponible, sino ID (number)
     const materialKeyStr = String(item.material_code ?? item.material_id)
     const colorKeyStr = String(item.color_code ?? item.color_id)
-
-    // Para Map: usar id_color_f9 como number
     const colorKeyNum = item.color_id
+
     const colorMap = varMap.get(prodKey)!
     if (!colorMap.has(colorKeyNum)) {
       colorMap.set(colorKeyNum, {
         id_color_f9:  colorKeyNum,
         color_nombre: item.color_nombre,
         hex_web:      item.hex_web,
-        imagen_url:   `${BUCKET}/${item.linea_codigo}-${item.referencia_codigo}-${materialKeyStr}-${colorKeyStr}.jpg`,
+        imagen_url:   item.imagen_url
+                      ?? `${BUCKET}/${item.linea_codigo}-${item.referencia_codigo}-${materialKeyStr}-${colorKeyStr}.jpg`,
         tallas:       [],
       })
     }

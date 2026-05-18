@@ -1,12 +1,25 @@
 import type { Metadata } from 'next'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-sans',
+})
+
+const playfair = Playfair_Display({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-serif',
+})
+
 export const metadata: Metadata = {
-  title: 'Bazzar — Tienda Online',
-  description: 'Tu tienda de calzado y accesorios favorita en Paraguay',
+  title: 'Bazzar — Calzado de Moda',
+  description: 'Calzado femenino, masculino e infantil de alta gama en Paraguay.',
   openGraph: {
-    title: 'Bazzar — Tienda Online',
-    description: 'Tu tienda de calzado y accesorios favorita en Paraguay',
+    title: 'Bazzar — Calzado de Moda',
+    description: 'Calzado femenino, masculino e infantil de alta gama en Paraguay.',
     siteName: 'Bazzar',
     locale: 'es_PY',
     type: 'website',
@@ -15,8 +28,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body>{children}</body>
+    <html lang="es" className={`${inter.variable} ${playfair.variable}`}>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   )
 }

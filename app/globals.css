@@ -3,22 +3,90 @@
 @tailwind utilities;
 
 body {
-  color: rgb(17 24 39);
-  background: rgb(249 250 251);
-  font-family: Inter, system-ui, sans-serif;
+  color: #111827; /* Dark Gray for text */
+  background: #FAFAFA; /* Off-white for elegance */
+  font-family: var(--font-sans), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, .font-serif {
+  font-family: var(--font-serif), serif;
 }
 
 @layer components {
+
+  /* ── Botones ── */
   .btn-primary {
-    @apply bg-amber-500 hover:bg-amber-600 text-white font-semibold
-           px-6 py-3 rounded-xl transition-colors duration-200
-           disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply bg-orange-500 hover:bg-orange-600 text-white font-semibold
+           px-6 py-3 rounded-xl transition-all duration-200 shadow-sm
+           hover:shadow-md active:scale-95
+           disabled:opacity-40 disabled:cursor-not-allowed;
   }
-  .btn-secondary {
-    @apply bg-white hover:bg-gray-50 text-gray-900 font-semibold
-           px-6 py-3 rounded-xl border border-gray-200 transition-colors duration-200;
+
+  .btn-navy {
+    @apply text-white font-semibold px-6 py-3 rounded-xl
+           transition-all duration-200 active:scale-95;
+    background-color: #1E3A5F;
   }
+  .btn-navy:hover { background-color: #132845; }
+
+  .btn-ghost {
+    @apply bg-white/10 hover:bg-white/20 text-white font-medium
+           px-4 py-2 rounded-lg transition-colors duration-200;
+  }
+
+  /* ── Cards ── */
   .card {
-    @apply bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden;
+    @apply bg-white rounded-xl overflow-hidden border-0
+           transition-all duration-500;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  }
+  .card:hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,0.06);
+    transform: translateY(-4px);
+  }
+
+  /* ── Badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5
+           rounded-full text-[10px] font-bold uppercase tracking-wider;
+  }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full bg-white border border-slate-200 rounded-xl
+           px-4 py-2.5 text-sm placeholder-slate-400
+           focus:outline-none focus:ring-2 focus:ring-orange-300
+           focus:border-orange-500 transition-colors duration-200;
+  }
+
+  /* ── Talla chips ── */
+  .talla-chip {
+    @apply text-[10px] font-bold px-2 py-1 rounded-lg border
+           transition-all duration-150 cursor-pointer select-none;
+  }
+
+  .talla-chip-active {
+    @apply border-slate-200 bg-sky-50 text-slate-700
+           hover:bg-orange-500 hover:text-white hover:border-orange-500
+           active:scale-95;
+  }
+
+  .talla-chip-empty {
+    @apply border-slate-100 bg-slate-50 text-slate-300
+           line-through cursor-not-allowed;
+  }
+
+  /* ── Sombra drawer ── */
+  .shadow-drawer {
+    box-shadow: -10px 0 40px rgba(0,0,0,0.04);
+  }
+
+  /* ── Sombra cards custom ── */
+  .shadow-card {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  }
+  .shadow-card-hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,0.06);
   }
 }
