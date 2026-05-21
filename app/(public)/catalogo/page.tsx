@@ -125,7 +125,7 @@ function agruparProductos(items: StockWebItem[]): ProductoAgrupado[] {
   const varMap  = new Map<string, Map<number, Variante>>()
 
   for (const item of items) {
-    const prodKey = `${item.linea_id}-${item.referencia_id}-${item.id_material_f9}`
+    const prodKey = `${item.linea_id}-${item.referencia_id}-${item.material_id}`
 
     if (!prodMap.has(prodKey)) {
       prodMap.set(prodKey, {

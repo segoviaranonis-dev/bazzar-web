@@ -21,10 +21,14 @@ async function run() {
   `)
   console.table(r0.rows)
 
-  // 2. Stock de referencia 200 T.39
-  console.log('\n── 2. v_stock_web referencia 200 ──')
-  const r1 = await client.query(`SELECT * FROM v_stock_web WHERE referencia_codigo = '200' ORDER BY talla_codigo`)
-  console.table(r1.rows)
+  // 2. Counts of lineas and referencias
+  console.log('\n── 2. Lineas and Referencias ──')
+  const linTotal = await client.query(`SELECT COUNT(*) FROM linea`)
+  const linNull = await client.query(`SELECT COUNT(*) FROM linea WHERE codigo_proveedor IS NULL`)
+  const refTotal = await client.query(`SELECT COUNT(*) FROM referencia`)
+  const refNull = await client.query(`SELECT COUNT(*) FROM referencia WHERE codigo_proveedor IS NULL`)
+  console.log(`linea: total=${linTotal.rows[0].count}, null_provider_code=${linNull.rows[0].count}`)
+  console.log(`referencia: total=${refTotal.rows[0].count}, null_provider_code=${refNull.rows[0].count}`)
 
   // 3. Código de reservar_stock()
   console.log('\n── 3. reservar_stock() ──')
