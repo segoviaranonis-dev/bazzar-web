@@ -8,7 +8,34 @@ export async function POST(request: Request) {
     if (!items?.length || !datos) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
 
     const supabase = await createClient()
-    const total = items.reduce((s, i) => s + i.precio_unitario * i.cantidad, 0)
+
+    // SECURITY: Validar precios contra BD antes de procesar
+    const combinacionIds = items.map(i => i.combinacion_id)
+    const { data: preciosReales } = await supabase
+      .from('combinacion_producto')
+      .select('id, precio')
+      .in('id', combinacionIds)
+
+    if (!preciosReales || preciosReales.length !== items.length) {
+      return NextResponse.json({ error: 'Productos no encontrados' }, { status: 400 })
+    }
+
+    const precioMap = new Map(preciosReales.map(p => [p.id, p.precio]))
+    let total = 0
+
+    // Validar cada precio y calcular total con precios de BD
+    for (const item of items) {
+      const precioReal = precioMap.get(item.combinacion_id)
+      if (precioReal === undefined) {
+        return NextResponse.json({ error: 'Precio no encontrado' }, { status: 400 })
+      }
+      // Rechazar si el precio del cliente no coincide (tolerancia de 1 Gs por redondeo)
+      if (Math.abs(item.precio_unitario - precioReal) > 1) {
+        console.warn(`[SECURITY] Precio manipulado: combinación ${item.combinacion_id}, enviado: ${item.precio_unitario}, real: ${precioReal}`)
+        return NextResponse.json({ error: 'Precio inválido - refresca el catálogo' }, { status: 400 })
+      }
+      total += precioReal * item.cantidad
+    }
 
     const { data: almacen } = await supabase.from('almacen').select('id').eq('nombre', 'ALM_WEB_01').single()
     if (!almacen) return NextResponse.json({ error: 'Almacén no disponible' }, { status: 500 })
@@ -41,7 +68,12 @@ export async function POST(request: Request) {
     }
 
     await supabase.from('pedido_web_detalle').insert(
-      items.map(i => ({ pedido_id: pedido.id, combinacion_id: i.combinacion_id, cantidad: i.cantidad, precio_unitario: i.precio_unitario }))
+      items.map(i => ({
+        pedido_id: pedido.id,
+        combinacion_id: i.combinacion_id,
+        cantidad: i.cantidad,
+        precio_unitario: precioMap.get(i.combinacion_id)! // Precio de BD, no del cliente
+      }))
     )
 
     const adminWa = process.env.ADMIN_WHATSAPP ?? ''
