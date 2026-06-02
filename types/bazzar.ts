@@ -5,7 +5,7 @@
 //   linea_id / referencia_id (bigint), linea_codigo / referencia_codigo (text),
 //   grupo_estilo_id + descp_grupo_estilo,
 //   genero_id + descp_genero.
-// Imagen: {SUPABASE_URL}/storage/v1/object/public/productos/{linea_codigo}-{referencia_codigo}-{material_code}-{color_code}.jpg
+// Imagen canonica: bucket `productos`, archivo {linea_codigo}-{referencia_codigo}-{material_f9}-{color_f9}.jpg
 
 export interface StockWebItem {
   combinacion_id: number

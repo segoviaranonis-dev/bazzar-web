@@ -14,6 +14,7 @@ Es la unica app abierta al publico.
 - `SUPABASE_SERVICE_ROLE_KEY` solo servidor. Nunca exponerlo al cliente.
 - El checkout debe validar precio y stock server-side.
 - Stock no se actualiza directo: usar RPC/funciones atomicas ya definidas.
+- Imagenes de producto: usar el protocolo Nexus `linea-referencia-material-color.jpg` con codigos proveedor/F9, nunca IDs internos.
 
 ## Prioridad actual
 

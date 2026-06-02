@@ -4,9 +4,9 @@ import type { StockWebItem } from '@/types/bazzar'
 import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
 import { FiltrosCatalogo } from './FiltrosCatalogo'
 import { getFiltros } from '@/lib/filtros'
+import { productImageUrlFromStockItem } from '@/lib/product-image'
 
 export const revalidate = 60
-const BUCKET = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/productos`
 
 interface Props {
   searchParams: { marca?: string; grupo_estilo?: string; colores?: string }
@@ -145,8 +145,6 @@ function agruparProductos(items: StockWebItem[]): ProductoAgrupado[] {
       varMap.set(prodKey, new Map())
     }
 
-    const materialKeyStr = String(item.material_code ?? item.material_id)
-    const colorKeyStr = String(item.color_code ?? item.color_id)
     const colorKeyNum = item.color_id
 
     const colorMap = varMap.get(prodKey)!
@@ -155,8 +153,7 @@ function agruparProductos(items: StockWebItem[]): ProductoAgrupado[] {
         id_color_f9:  colorKeyNum,
         color_nombre: item.color_nombre,
         hex_web:      item.hex_web,
-        imagen_url:   item.imagen_url
-                      ?? `${BUCKET}/${item.linea_codigo}-${item.referencia_codigo}-${materialKeyStr}-${colorKeyStr}.jpg`,
+        imagen_url:   productImageUrlFromStockItem(item),
         tallas:       [],
       })
     }

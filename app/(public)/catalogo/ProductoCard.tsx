@@ -82,9 +82,9 @@ function hexDesdeNombre(nombre: string): string {
 function Imagen({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
   const [err, setErr] = useState(false)
 
-  if (err) {
+  if (err || !src) {
     // Extraer solo el nombre del archivo de la URL
-    const filename = src.split('/').pop() || 'imagen-no-encontrada.jpg'
+    const filename = src ? src.split('/').pop() || 'imagen-no-encontrada.jpg' : 'imagen-no-configurada.jpg'
 
     return (
       <div className={`flex flex-col items-center justify-center gap-2 ${className ?? 'w-full h-full'}`}

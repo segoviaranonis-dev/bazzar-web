@@ -49,7 +49,7 @@ function checkRateLimit(key: string): boolean {
 // Limpiar cache cada minuto
 setInterval(() => {
   const now = Date.now()
-  for (const [key, record] of requestCounts.entries()) {
+  for (const [key, record] of Array.from(requestCounts.entries())) {
     if (now > record.resetAt) {
       requestCounts.delete(key)
     }
