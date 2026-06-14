@@ -17,7 +17,7 @@ export default async function AdminDashboard() {
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Pedidos</h1>
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <Stat label="Pendientes" value={pendientes} color="yellow" />
+        <Stat label="Pendientes" value={pendientes} color="amber" />
         <Stat label="Total" value={all.length} color="blue" />
         <Stat label="Confirmados" value={confirmados} color="green" />
       </div>
@@ -54,7 +54,7 @@ export default async function AdminDashboard() {
 }
 
 function Stat({ label, value, color }: { label: string; value: number; color: string }) {
-  const c: Record<string, string> = { yellow: 'bg-yellow-50 text-yellow-700', blue: 'bg-blue-50 text-blue-700', green: 'bg-green-50 text-green-700' }
+  const c: Record<string, string> = { amber: 'bg-amber-50 text-amber-700', blue: 'bg-blue-50 text-blue-700', green: 'bg-green-50 text-green-700' }
   return (
     <div className={`rounded-2xl p-5 ${c[color]}`}>
       <p className="text-3xl font-bold">{value}</p>
@@ -64,6 +64,6 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 }
 
 function Badge({ estado }: { estado: string }) {
-  const m: Record<string, string> = { PENDIENTE: 'bg-yellow-100 text-yellow-700', CONFIRMADO: 'bg-green-100 text-green-700', RECHAZADO: 'bg-red-100 text-red-700', ENTREGADO: 'bg-gray-100 text-gray-700' }
+  const m: Record<string, string> = { PENDIENTE: 'bg-amber-100 text-amber-800', CONFIRMADO: 'bg-green-100 text-green-700', RECHAZADO: 'bg-red-100 text-red-700', ENTREGADO: 'bg-gray-100 text-gray-700' }
   return <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${m[estado] ?? ''}`}>{estado}</span>
 }

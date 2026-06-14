@@ -31,7 +31,7 @@ h1, h2, h3, h4, h5, h6, .font-serif {
   .btn-navy:hover { background-color: #132845; }
 
   .btn-ghost {
-    @apply bg-white/10 hover:bg-white/20 text-white font-medium
+    @apply bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium
            px-4 py-2 rounded-lg transition-colors duration-200;
   }
 

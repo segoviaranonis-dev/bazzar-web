@@ -1,13 +1,30 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { checkRateLimit, pruneRateLimitStore } from '@/lib/security/rate-limit'
+import { generatePedidoToken } from '@/lib/security/pedido-token'
 
-const ALM_WEB_01 = 1
-
-// ── Validación de campos del cliente ────────────────────────────────────────
 const CEDULA_RE  = /^[0-9]{5,15}$/
 const EMAIL_RE   = /^[^\s@]{1,64}@[^\s@]{1,255}$/
 const PHONE_RE   = /^[0-9+\-\s()]{6,20}$/
+
+async function clientIpKey(suffix: string): Promise<string> {
+  const h = await headers()
+  const fwd = h.get('x-forwarded-for')
+  const ip = fwd?.split(',')[0]?.trim() ?? h.get('x-real-ip') ?? 'unknown'
+  return `${ip}:${suffix}`
+}
+
+async function enforceRateLimit(suffix: string, max: number, windowMs: number): Promise<string | null> {
+  pruneRateLimitStore()
+  const key = await clientIpKey(suffix)
+  const { ok, retryAfterSec } = checkRateLimit(key, max, windowMs)
+  if (!ok) {
+    return `Demasiados intentos. Esperá ${retryAfterSec ?? 60} segundos.`
+  }
+  return null
+}
 
 function validarDatos(d: DatosCheckout): string | null {
   if (!CEDULA_RE.test(d.cedula.trim()))
@@ -29,9 +46,9 @@ function validarDatos(d: DatosCheckout): string | null {
 
 export interface ItemCheckout {
   key: string
-  combinacion_id?: number       // puede faltar en items de localStorage pre-fix
+  combinacion_id?: number
   stock_web?: number
-  linea_id?: number             // opcional para tolerar localStorage pre-018
+  linea_id?: number
   linea_codigo: string
   referencia_id?: number
   referencia_codigo: string
@@ -41,7 +58,7 @@ export interface ItemCheckout {
   color_nombre: string
   talla_codigo: string
   imagen_url: string
-  precio_web: number | null     // precio del carrito — se re-valida en servidor
+  precio_web: number | null
   cantidad: number
 }
 
@@ -55,39 +72,63 @@ export interface DatosCheckout {
   notas?:    string
 }
 
-export interface ClienteData {
-  cedula:    string
-  nombre:    string
-  apellido:  string | null
-  email:     string | null
-  telefono:  string | null
-  direccion: string | null
+/** Solo datos no sensibles para autocomplete en checkout */
+export interface ClienteAutocomplete {
+  cedula:   string
+  nombre:   string
+  apellido: string | null
 }
 
 export interface ResultadoCheckout {
-  ok:        boolean
-  pedido_id?: number
-  error?:    string
+  ok:             boolean
+  pedido_id?:     number
+  token_acceso?:  string
+  error?:         string
 }
 
-/* ── Buscar cliente por cédula (para autocomplete) ── */
-export async function buscarClientePorCedula(cedula: string): Promise<ClienteData | null> {
-  const c = cedula.trim()
+async function resolveAlmacenWebId(supabase: ReturnType<typeof createAdminClient>): Promise<number | null> {
+  const { data } = await supabase
+    .from('almacen')
+    .select('id')
+    .eq('nombre', 'ALM_WEB_01')
+    .single()
+  return data?.id ?? null
+}
+
+async function abortPedido(
+  supabase: ReturnType<typeof createAdminClient>,
+  pedidoId: number,
+) {
+  await supabase.rpc('liberar_stock_reserva', { p_pedido_id: pedidoId })
+  await supabase.from('pedido_web').delete().eq('id', pedidoId)
+}
+
+/** Autocomplete por cédula — solo nombre/apellido; rate-limited */
+export async function buscarClientePorCedula(cedula: string): Promise<ClienteAutocomplete | null> {
+  const rateErr = await enforceRateLimit('buscar-cedula', 20, 60_000)
+  if (rateErr) return null
+
+  const c = cedula.replace(/\D/g, '').trim()
   if (!CEDULA_RE.test(c)) return null
+
   const supabase = createAdminClient()
   const { data } = await supabase
     .from('cliente_web')
-    .select('cedula, nombre, apellido, email, telefono, direccion')
+    .select('cedula, nombre, apellido')
     .eq('cedula', c)
-    .single()
-  return data ?? null
+    .maybeSingle()
+
+  if (!data) return null
+  return { cedula: data.cedula, nombre: data.nombre, apellido: data.apellido }
 }
 
-/* ── Crear pedido completo ── */
 export async function crearPedido(
   datos: DatosCheckout,
-  items: ItemCheckout[]
+  items: ItemCheckout[],
 ): Promise<ResultadoCheckout> {
+  const rateErr = await enforceRateLimit('crear-pedido', 8, 60_000)
+  if (rateErr) return { ok: false, error: rateErr }
+
   if (!items.length) return { ok: false, error: 'El pedido está vacío' }
   if (items.some(i => i.cantidad <= 0)) {
     return { ok: false, error: 'Cantidad inválida en uno o más artículos.' }
@@ -100,27 +141,25 @@ export async function crearPedido(
   if (errorValidacion) return { ok: false, error: errorValidacion }
 
   const supabase = createAdminClient()
+  const almacenId = await resolveAlmacenWebId(supabase)
+  if (!almacenId) {
+    return { ok: false, error: 'Almacén web no disponible. Contactá al administrador.' }
+  }
 
-  // ── 1. RESOLVER combinacion_id y VALIDAR PRECIOS DESDE LA BD ─────────────
-  // Consultar SOLO los referencia_codigo del carrito (evita traer toda la vista).
-  // Supabase tiene límite de 1000 filas por query — filtrar es obligatorio.
   const referencias = Array.from(new Set(items.map(i => i.referencia_codigo)))
-
   const { data: stockRows, error: stockError } = await supabase
     .from('v_stock_web')
-    .select('*')                          // select(*) para no asumir nombres de columna
+    .select('*')
     .in('referencia_codigo', referencias)
 
   if (stockError) {
-    console.error('[checkout] v_stock_web error:', stockError.message, stockError.code)
+    console.error('[checkout] v_stock_web:', stockError.message)
     return { ok: false, error: 'Error al verificar productos. Intentá nuevamente.' }
   }
-
   if (!stockRows?.length) {
     return { ok: false, error: 'Los productos ya no están disponibles. Recargá el catálogo.' }
   }
 
-  // Resolver cada item: combinacion_id, linea_id, referencia_id y precio desde la BD
   type ItemResuelto = ItemCheckout & {
     combinacion_id: number
     linea_id: number
@@ -133,7 +172,7 @@ export async function crearPedido(
     const fila = stockRows.find((r: Record<string, unknown>) =>
       r['referencia_codigo'] === item.referencia_codigo &&
       r['color_nombre']      === item.color_nombre      &&
-      r['talla_codigo']      === item.talla_codigo
+      String(r['talla_codigo']) === String(item.talla_codigo)
     ) as Record<string, unknown> | undefined
 
     if (!fila) {
@@ -143,29 +182,38 @@ export async function crearPedido(
       }
     }
 
-    const precio = fila['precio_web'] as number | null
-    if (!precio) {
-      // Sin precio en BD: igual creamos el pedido con precio 0 y nota admin
-      console.warn(`[checkout] precio_web null para combinacion ${fila['combinacion_id']}`)
+    const precio = Number(fila['precio_web'] ?? 0)
+    if (!precio || precio <= 0) {
+      return {
+        ok: false,
+        error: 'Precio no disponible en catálogo. Recargá la página o contactanos por WhatsApp.',
+      }
+    }
+
+    const estadoSano = fila['stock_sano_estado'] as string | null | undefined
+    if (estadoSano === 'SIN_PROTOCOLO') {
+      return {
+        ok: false,
+        error: `"${item.referencia_codigo}" pendiente de protocolo Stock Sano. Contactanos por WhatsApp.`,
+      }
     }
 
     itemsResueltos.push({
       ...item,
-      combinacion_id: fila['combinacion_id'] as number,
-      linea_id:       fila['linea_id']       as number,
-      referencia_id:  fila['referencia_id']  as number,
-      precio_servidor: precio ?? 0,
+      combinacion_id:  fila['combinacion_id'] as number,
+      linea_id:        fila['linea_id'] as number,
+      referencia_id:   fila['referencia_id'] as number,
+      precio_servidor: precio,
     })
   }
 
-  // ── 2. TOTAL CON PRECIOS DEL SERVIDOR ────────────────────────────────────
   const total = itemsResueltos.reduce((s, i) => s + i.precio_servidor * i.cantidad, 0)
+  const tokenAcceso = generatePedidoToken()
 
-  // ── 3. UPSERT CLIENTE ────────────────────────────────────────────────────
   const { data: cliente, error: errCliente } = await supabase
     .from('cliente_web')
     .upsert({
-      cedula:     datos.cedula.trim(),
+      cedula:     datos.cedula.replace(/\D/g, '').trim(),
       nombre:     datos.nombre.trim(),
       apellido:   datos.apellido?.trim()  || null,
       email:      datos.email?.trim()     || null,
@@ -177,15 +225,14 @@ export async function crearPedido(
     .single()
 
   if (errCliente || !cliente) {
-    console.error('[checkout] cliente_web upsert:', errCliente?.message)
+    console.error('[checkout] cliente_web:', errCliente?.message)
     return { ok: false, error: 'Error al registrar cliente. Intentá nuevamente.' }
   }
 
-  // ── 4. CABECERA DEL PEDIDO ───────────────────────────────────────────────
   const { data: pedido, error: errPedido } = await supabase
     .from('pedido_web')
     .insert({
-      almacen_id:        ALM_WEB_01,
+      almacen_id:        almacenId,
       estado:            'PENDIENTE',
       cliente_web_id:    cliente.id,
       cliente_nombre:    `${datos.nombre} ${datos.apellido ?? ''}`.trim(),
@@ -194,22 +241,22 @@ export async function crearPedido(
       cliente_direccion: datos.direccion?.trim() || null,
       notas_cliente:     datos.notas             || null,
       total,
+      token_acceso:      tokenAcceso,
     })
     .select('id')
     .single()
 
   if (errPedido || !pedido) {
-    console.error('[checkout] pedido_web insert:', errPedido?.message)
+    console.error('[checkout] pedido_web:', errPedido?.message)
     return { ok: false, error: 'Error al registrar el pedido. Intentá nuevamente.' }
   }
 
-  // ── 5. RESERVAR STOCK ATÓMICAMENTE ───────────────────────────────────────
   const sinStock: string[] = []
   for (const item of itemsResueltos) {
     const { data: ok, error: errRpc } = await supabase.rpc('reservar_stock', {
       p_combinacion_id: item.combinacion_id,
       p_cantidad:       item.cantidad,
-      p_almacen_id:     ALM_WEB_01,
+      p_almacen_id:     almacenId,
       p_pedido_id:      pedido.id,
     })
     if (errRpc) console.error('[checkout] reservar_stock:', errRpc.message)
@@ -217,14 +264,13 @@ export async function crearPedido(
   }
 
   if (sinStock.length > 0) {
-    await supabase.from('pedido_web').delete().eq('id', pedido.id)
+    await abortPedido(supabase, pedido.id)
     return {
       ok: false,
       error: `Sin stock para: ${sinStock.join(', ')}. Otro cliente se adelantó. Revisá tu carrito.`,
     }
   }
 
-  // ── 6. DETALLES DEL PEDIDO (incluye linea_id / referencia_id, estándar 018) ─
   const detalles = itemsResueltos.map(item => ({
     pedido_id:         pedido.id,
     combinacion_id:    item.combinacion_id,
@@ -245,15 +291,13 @@ export async function crearPedido(
     },
   }))
 
-  const { error: errDetalle } = await supabase
-    .from('pedido_web_detalle')
-    .insert(detalles)
+  const { error: errDetalle } = await supabase.from('pedido_web_detalle').insert(detalles)
 
   if (errDetalle) {
-    console.error('[checkout] detalle insert:', errDetalle.message)
-    await supabase.from('pedido_web').delete().eq('id', pedido.id)
+    console.error('[checkout] detalle:', errDetalle.message)
+    await abortPedido(supabase, pedido.id)
     return { ok: false, error: 'Error al guardar artículos. Intentá nuevamente.' }
   }
 
-  return { ok: true, pedido_id: pedido.id }
+  return { ok: true, pedido_id: pedido.id, token_acceso: tokenAcceso }
 }

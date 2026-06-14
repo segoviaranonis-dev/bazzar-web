@@ -1,31 +1,33 @@
 /** @type {import('next').NextConfig} */
 
-const SUPABASE_HOST = 'extrlcvcgypwazxipvqm.supabase.co'
+function supabaseHost() {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? ''
+  try {
+    return new URL(raw).hostname
+  } catch {
+    return 'localhost'
+  }
+}
+
+const SUPABASE_HOST = supabaseHost()
 
 const securityHeaders = [
-  // Evita que la página se cargue dentro de un iframe (clickjacking)
   { key: 'X-Frame-Options', value: 'DENY' },
-  // Bloquea sniffing de tipo MIME
   { key: 'X-Content-Type-Options', value: 'nosniff' },
-  // No enviar referrer a otros dominios
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-  // Fuerza HTTPS por 1 año
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-  // Deshabilita funciones de browser innecesarias
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
-  // Content Security Policy
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
       `img-src 'self' https://${SUPABASE_HOST} data: blob:`,
-      `connect-src 'self' https://${SUPABASE_HOST}`,
-      "font-src 'self'",
+      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+      "font-src 'self' data:",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
       "frame-ancestors 'none'",
-      // Next.js necesita inline scripts para hydration
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline'",
     ].join('; '),
@@ -43,12 +45,7 @@ const nextConfig = {
     ],
   },
   async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: securityHeaders,
-      },
-    ]
+    return [{ source: '/(.*)', headers: securityHeaders }]
   },
 }
 

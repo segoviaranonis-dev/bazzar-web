@@ -29,6 +29,11 @@ export interface StockWebItem {
   talla_orden: number
   stock_web: number
   precio_web: number | null
+  /** Protocolo Stock Sano — ALM_WEB_01 */
+  stock_sano_estado?: 'SANO' | 'SIN_PROTOCOLO' | null
+  stock_sano_caso?: string | null
+  stock_sano_markup_pct?: number | null
+  stock_sano_lpn?: number | null
   grupo_estilo_id: number | null
   descp_grupo_estilo: string
   genero_id: number | null

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buildColorOptions } from '@/lib/colors'
 import { getFiltros } from '@/lib/filtros'
+import { adminWhatsAppUrl } from '@/lib/whatsapp'
 import { Urbanist, Playfair_Display } from 'next/font/google'
 import '../globals.css'
 
@@ -123,7 +124,7 @@ export default async function PublicLayout({ children }: { children: React.React
                 <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-gray-400 mb-4">Contacto</p>
                 <ul className="space-y-2.5 text-xs text-gray-800">
                   <li>Asunción, Paraguay</li>
-                  <li><a href="https://wa.me/595XXXXXXXXX" target="_blank" rel="noopener noreferrer"
+                  <li><a href={adminWhatsAppUrl()} target="_blank" rel="noopener noreferrer"
                     className="hover:text-black transition-colors">WhatsApp</a></li>
                   <li><Link href="/nosotros" className="hover:text-black transition-colors">Nosotros</Link></li>
                 </ul>

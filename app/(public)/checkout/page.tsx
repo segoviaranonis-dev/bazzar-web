@@ -62,11 +62,8 @@ export default function CheckoutPage() {
       try {
         const cliente = await buscarClientePorCedula(cedula.replace(/\D/g, ''))
         if (cliente) {
-          setValue('nombre',    cliente.nombre)
-          setValue('apellido',  cliente.apellido ?? '')
-          setValue('email',     cliente.email ?? '')
-          setValue('telefono',  cliente.telefono ?? '')
-          setValue('direccion', cliente.direccion ?? '')
+          setValue('nombre',   cliente.nombre)
+          setValue('apellido', cliente.apellido ?? '')
           setClienteEncontrado(true)
         }
       } finally {
@@ -79,9 +76,9 @@ export default function CheckoutPage() {
     setServerError(null)
     startTransition(async () => {
       const resultado = await crearPedido(datos, items)
-      if (resultado.ok && resultado.pedido_id) {
+      if (resultado.ok && resultado.pedido_id && resultado.token_acceso) {
         clear()
-        router.push(`/pedido/${resultado.pedido_id}`)
+        router.push(`/pedido/${resultado.pedido_id}?t=${encodeURIComponent(resultado.token_acceso)}`)
       } else {
         setServerError(resultado.error ?? 'Error desconocido')
       }

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import HeroSlider from './HeroSlider'
+import { adminWhatsAppUrl } from '@/lib/whatsapp'
 
 const MARCAS = [
   {
@@ -203,7 +204,7 @@ export default function InicioPage() {
                 Envíos a todo Paraguay.
               </p>
             </div>
-            <a href="https://wa.me/595XXXXXXXXX"
+            <a href={adminWhatsAppUrl()}
                target="_blank" rel="noopener noreferrer"
                className="flex items-center gap-2 px-8 py-4 rounded-xl font-bold text-sm
                           transition-all hover:scale-105 active:scale-95 shrink-0"

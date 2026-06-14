@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:3002": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:v-stock-web": "node scripts/apply_v_stock_web.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

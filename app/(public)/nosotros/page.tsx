@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { adminWhatsAppUrl } from '@/lib/whatsapp'
 
 export const metadata = {
   title: 'Nosotros — Bazzar Paraguay',
@@ -178,7 +179,7 @@ export default function NosotrosPage() {
             Escribinos y con gusto te contamos todo sobre nuestros productos y servicios.
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
-            <a href="https://wa.me/595XXXXXXXXX" target="_blank" rel="noopener noreferrer"
+            <a href={adminWhatsAppUrl()} target="_blank" rel="noopener noreferrer"
                className="px-6 py-3 rounded-xl font-bold text-sm transition-all hover:scale-105"
                style={{ background: '#25D366', color: 'white' }}>
               💬 Escribinos por WhatsApp

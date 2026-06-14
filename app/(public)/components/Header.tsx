@@ -252,7 +252,7 @@ export default function Header({ data }: { data: HeaderData }) {
   )
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-100 transition-all duration-300">
+    <header className="sticky top-0 z-40 bg-white border-b border-gray-100 transition-all duration-300">
 
       {/* Announcement bar */}
       <div className="bg-black text-white text-center text-[10px] tracking-[0.2em] uppercase py-2.5 px-4 font-medium">
