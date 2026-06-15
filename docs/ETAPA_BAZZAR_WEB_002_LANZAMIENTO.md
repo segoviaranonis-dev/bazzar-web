@@ -1,8 +1,7 @@
 # ETAPA BAZZAR-WEB-002 — Lanzamiento oficial y cierre de proyecto
 
-**Inicio:** 2026-06-10  
-**Estado:** EN CURSO  
-**Objetivo:** Lanzamiento en **www.bazzar.com.py** con auditoría de cierre (seguridad, NIIF, corredor Bancard).  
+**Estado:** Absorbida por **[ETAPA_ABIERTA_PUBLICACION.md](./ETAPA_ABIERTA_PUBLICACION.md)** (2026-06-10)  
+**Objetivo histórico:** Lanzamiento en **www.bazzar.com.py** con auditoría de cierre.  
 **Repo:** https://github.com/segoviaranonis-dev/bazzar-web.git  
 **Predecesora:** [ETAPA_BAZZAR-WEB-001](ETAPA_BAZZAR_WEB_001.md)
 

@@ -84,8 +84,10 @@ Detalle: `docs/DEPLOY_VERCEL_BAZZAR.md`
 
 ### 1.2 Dominio (1 h + espera DNS)
 
+Ver **[SUBETAPA MAX DOMINIO](SUBETAPA_MAX_DOMINIO.md)** (Max Dominio = registrador, no Bancard).
+
 - [ ] Vercel → Domains → `www.bazzar.com.py` + `bazzar.com.py`
-- [ ] Registrador DNS según Vercel (CNAME www, A en apex)
+- [ ] Panel Max Dominio: CNAME www + A apex según Vercel
 - [ ] Redirect apex → www
 
 ### 1.3 Código en producción

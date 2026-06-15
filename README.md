@@ -20,13 +20,13 @@ npm run db:v-stock-web
 
 ## Documentación de etapa
 
-- [ETAPA BAZZAR-WEB-003 — Stock Sano](docs/ETAPA_BAZZAR_WEB_003_STOCK_SANO.md) — **CERRADA**
+- **[ETAPA ABIERTA — Publicación MVP](docs/ETAPA_ABIERTA_PUBLICACION.md)** — **▶ LISTA PASO A PASO (Director)**
 - [Plan de entrega (MVP rápido)](docs/PLAN_ENTREGA_BAZZAR_WEB.md)
-- [ETAPA BAZZAR-WEB-002 — Lanzamiento](docs/ETAPA_BAZZAR_WEB_002_LANZAMIENTO.md)
-- [ETAPA BAZZAR-WEB-001](docs/ETAPA_BAZZAR_WEB_001.md)
 - [Deploy Vercel](docs/DEPLOY_VERCEL_BAZZAR.md)
-- [Solicitud Bancard](docs/BANCARD_SOLICITUD.md)
-- [Auditoría](docs/AUDITORIA_BAZZAR_WEB.md)
+- [SUBETAPA MAX DOMINIO](docs/SUBETAPA_MAX_DOMINIO.md) — DNS registrador
+- [ETAPA BAZZAR-WEB-003 — Stock Sano](docs/ETAPA_BAZZAR_WEB_003_STOCK_SANO.md) — **CERRADA**
+- [ETAPA BAZZAR-WEB-002 — Lanzamiento](docs/ETAPA_BAZZAR_WEB_002_LANZAMIENTO.md)
+- [Solicitud Bancard](docs/BANCARD_SOLICITUD.md) — **fase 2, después del MVP**
 
 ## SQL Supabase (ejecutar en orden)
 
