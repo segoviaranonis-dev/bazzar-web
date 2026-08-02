@@ -64,6 +64,7 @@ interface Props {
     colores?: string
     ramo_tipo?: string
     tipo_grupos?: string
+    q?: string
   }
 }
 
@@ -76,6 +77,9 @@ function parseRamo(raw: string | undefined): RamoTipoBazzar {
 export default async function CatalogoPage({ searchParams }: Props) {
   const { marca: marcaFiltro, grupo_estilo: estiloFiltro, colores: coloresFiltroRaw } =
     searchParams
+  const qFiltro = String(searchParams.q ?? '')
+    .trim()
+    .toLowerCase()
   const coloresFiltro = coloresFiltroRaw
     ? coloresFiltroRaw.split(',').map((c) => c.toLowerCase()).filter(Boolean)
     : []
@@ -175,6 +179,23 @@ export default async function CatalogoPage({ searchParams }: Props) {
     rowsFiltradas = rowsFiltradas.filter((r) => lineasValidas.has(r.linea_id))
   }
 
+  if (qFiltro) {
+    rowsFiltradas = rowsFiltradas.filter((r) => {
+      const blob = [
+        r.marca,
+        r.linea_codigo,
+        r.referencia_codigo,
+        r.material_code,
+        r.color_nombre,
+        r.descp_grupo_estilo,
+        r.referencia_descripcion,
+      ]
+        .map((x) => String(x ?? '').toLowerCase())
+        .join(' ')
+      return blob.includes(qFiltro)
+    })
+  }
+
   const lineas638 = Array.from(
     new Set(
       rowsFiltradas
@@ -244,47 +265,51 @@ export default async function CatalogoPage({ searchParams }: Props) {
       : todosEstilos
 
   return (
-    <div>
-      <Suspense>
-        <FiltrosCatalogo
-          marcas={marcasVisibles}
-          estilos={estilosVisibles.map((e, i) => ({ id: i, nombre: e }))}
-          colores={todosColores}
-          totalModelos={productos.length}
-          totalUnidades={totalUnidades}
-          unidadLabel={unidadLabel}
-        />
-      </Suspense>
+    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+      <aside className="w-full shrink-0 lg:sticky lg:top-16 lg:w-auto lg:max-w-md">
+        <Suspense>
+          <FiltrosCatalogo
+            marcas={marcasVisibles}
+            estilos={estilosVisibles.map((e, i) => ({ id: i, nombre: e }))}
+            colores={todosColores}
+            totalModelos={productos.length}
+            totalUnidades={totalUnidades}
+            unidadLabel={unidadLabel}
+          />
+        </Suspense>
+      </aside>
 
-      {productos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-40 text-center">
-          <div
-            className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl text-4xl"
-            style={{ backgroundColor: '#f1f5f9' }}
-          >
-            🔍
+      <div className="min-w-0 flex-1">
+        {productos.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center lg:py-40">
+            <div
+              className="mb-5 flex h-20 w-20 items-center justify-center rounded-2xl text-4xl"
+              style={{ backgroundColor: '#f1f5f9' }}
+            >
+              🔍
+            </div>
+            <p className="mb-2 text-xl font-extrabold" style={{ color: '#1E3A5F' }}>
+              Sin resultados
+            </p>
+            <p className="mb-6 max-w-xs text-sm text-slate-400">
+              No encontramos modelos con esos filtros. Probá con otras opciones.
+            </p>
+            <a
+              href="/catalogo"
+              className="rounded-xl px-6 py-3 text-sm font-bold text-white transition-all"
+              style={{ backgroundColor: '#F97316' }}
+            >
+              Ver todo el catálogo
+            </a>
           </div>
-          <p className="mb-2 text-xl font-extrabold" style={{ color: '#1E3A5F' }}>
-            Sin resultados
-          </p>
-          <p className="mb-6 max-w-xs text-sm text-slate-400">
-            No encontramos modelos con esos filtros. Probá con otras opciones.
-          </p>
-          <a
-            href="/catalogo"
-            className="rounded-xl px-6 py-3 text-sm font-bold text-white transition-all"
-            style={{ backgroundColor: '#F97316' }}
-          >
-            Ver todo el catálogo
-          </a>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5">
-          {productos.map((p) => (
-            <ProductoCard key={p.key} producto={p} />
-          ))}
-        </div>
-      )}
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+            {productos.map((p) => (
+              <ProductoCard key={p.key} producto={p} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
