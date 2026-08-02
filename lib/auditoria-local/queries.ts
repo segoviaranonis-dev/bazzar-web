@@ -194,7 +194,7 @@ function gradaDeMarca(modelos: ModeloDetalle[]): { talla: string; talla_orden: n
       if (prev == null || t.talla_orden < prev) map.set(t.talla, t.talla_orden)
     }
   }
-  return [...map.entries()]
+  return Array.from(map.entries())
     .map(([talla, talla_orden]) => ({ talla, talla_orden }))
     .sort((a, b) => {
       // 638 Director: 1·2·3 → P·M·G·GG → 4·6·8·10…  |  654: serial numérico etiqueta
@@ -318,7 +318,7 @@ function attachTalles638FromPpd(acc: {
       es_grada_638_valida: true,
     })
   }
-  const ordered = [...byTalle.values()].sort(
+  const ordered = Array.from(byTalle.values()).sort(
     (a, b) => sortTalle638Key(a.talla) - sortTalle638Key(b.talla),
   )
   const webParts = splitIntEqual(acc.meta.web_pares, ordered.length)
@@ -434,7 +434,7 @@ function buildRamos(
 
   const ramoMaps = new Map<'Calzado' | 'Confecciones', Map<string, ModeloDetalle[]>>()
 
-  for (const acc of modelos.values()) {
+  for (const acc of Array.from(modelos.values())) {
     if (acc.meta.tipo_v2 === 'Confecciones') {
       attachTalles638FromPpd(acc, ppdIndex)
     }
@@ -465,11 +465,11 @@ function buildRamos(
       ok_stock,
       ok_grada,
       ok: ok_stock && ok_grada,
-      colores: [...acc.colores.values()].map((c) => ({
+      colores: Array.from(acc.colores.values()).map((c) => ({
         ...c,
         tallas: [...c.tallas].sort(sortTallas),
       })),
-      tallas: [...acc.tallas638.values()].sort(
+      tallas: Array.from(acc.tallas638.values()).sort(
         (a, b) => sortTalle638Key(a.talla) - sortTalle638Key(b.talla),
       ),
     }
@@ -498,7 +498,7 @@ function buildRamos(
       })
       continue
     }
-    const marcas: MarcaBloque[] = [...mm.entries()]
+    const marcas: MarcaBloque[] = Array.from(mm.entries())
       .sort(([a], [b]) => a.localeCompare(b, 'es'))
       .map(([marca, modelos_detalle]) => {
         modelos_detalle.sort(
@@ -669,14 +669,14 @@ export async function getAuditoriaLocalCruce(): Promise<AuditoriaLocalPayload> {
           `,
     )
 
-    const lineas638 = [
-      ...new Set(
+    const lineas638 = Array.from(
+      new Set(
         webDet.rows
           .filter((r) => Number(r.proveedor_id) === 638)
           .map((r) => String(r.linea).trim())
           .filter(Boolean),
       ),
-    ]
+    )
     const ppdRes =
       lineas638.length === 0
         ? { rows: [] as PpdTalleRow[] }

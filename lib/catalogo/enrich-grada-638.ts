@@ -36,7 +36,7 @@ function splitIntEqual(total: number, n: number): number[] {
   return out
 }
 
-function pgClient(): pg.Client | null {
+function pgClient() {
   const url = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim()
   if (!url) return null
   return new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })

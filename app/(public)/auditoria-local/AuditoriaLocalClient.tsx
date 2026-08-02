@@ -78,7 +78,7 @@ function gradaDeFila(tallas: TallaStock[]): GradaCol[] {
       if (prev == null || t.talla_orden < prev) map.set(t.talla, t.talla_orden)
     }
   }
-  return [...map.entries()]
+  return Array.from(map.entries())
     .map(([talla, talla_orden]) => ({ talla, talla_orden }))
     .sort((a, b) => compararTallaEtiqueta(a.talla, b.talla, a.talla_orden, b.talla_orden))
 }
@@ -148,7 +148,7 @@ function gruposPorGrada(filas: FilaVariante[]): GrupoGrada[] {
     }
     g.filas.push(f)
   }
-  return [...map.values()].sort((a, b) => {
+  return Array.from(map.values()).sort((a, b) => {
     const ta = a.grada[0]?.talla ?? ''
     const tb = b.grada[0]?.talla ?? ''
     const cmp = compararTallaEtiqueta(ta, tb)
@@ -559,8 +559,8 @@ function MarcaAcordeonConfecciones({
     return map
   }, [marca.modelos_detalle, grada])
 
-  const sumColWeb = [...colWeb.values()].reduce((s, n) => s + n, 0)
-  const sumColDep = [...colDep.values()].reduce((s, n) => s + n, 0)
+  const sumColWeb = Array.from(colWeb.values()).reduce((s, n) => s + n, 0)
+  const sumColDep = Array.from(colDep.values()).reduce((s, n) => s + n, 0)
   const cellsOk = sumColWeb === sumWeb && sumColDep === sumDep
 
   const hint = !marca.ok_grada
