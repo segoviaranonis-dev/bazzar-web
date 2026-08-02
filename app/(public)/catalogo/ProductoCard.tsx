@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useCart } from '@/lib/cart/CartContext'
+import { ProductImage } from '@/components/ProductImage'
+import { productImageUrlFromStockItem, type StockImageInput } from '@/lib/product-image'
+import { parseEtiquetaTalle638, sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
 
 /* ── Tipos ── */
 export interface Talla { combinacion_id: number; codigo: string; orden: number; stock: number }
@@ -12,6 +15,9 @@ export interface Variante {
   color_nombre: string
   hex_web: string | null
   imagen_url: string
+  imagen_candidates_thumb: string[]
+  imagen_candidates_hero: string[]
+  imagen_item: StockImageInput
   tallas: Talla[]
 }
 
@@ -27,7 +33,25 @@ export interface ProductoAgrupado {
   precio_web: number | null
   descp_grupo_estilo: string | null
   grupo_estilo_id: number | null
+  /** 654 calzado · 638 confecciones — orden grada canónico */
+  proveedor_importacion_id?: number | null
+  stock_sano_caso?: string | null
+  /** PRENDAS 654 (ACT ROPAS) o 638 — unidad prendas */
+  unidad_stock?: 'pares' | 'prendas'
   variantes: Variante[]
+}
+
+function esConfecciones638(p: ProductoAgrupado): boolean {
+  return Number(p.proveedor_importacion_id) === 638
+}
+
+function unidadStock(p: ProductoAgrupado): 'pares' | 'prendas' {
+  if (p.unidad_stock === 'prendas' || p.unidad_stock === 'pares') return p.unidad_stock
+  return esConfecciones638(p) ? 'prendas' : 'pares'
+}
+
+function usaGradaRopa(p: ProductoAgrupado): boolean {
+  return esConfecciones638(p) || p.unidad_stock === 'prendas'
 }
 
 /* ── Paleta ── */
@@ -78,34 +102,6 @@ function hexDesdeNombre(nombre: string): string {
   return '#CBD5E1'
 }
 
-/* ── Imagen con fallback ── */
-function Imagen({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
-  const [err, setErr] = useState(false)
-
-  if (err || !src) {
-    // Extraer solo el nombre del archivo de la URL
-    const filename = src ? src.split('/').pop() || 'imagen-no-encontrada.jpg' : 'imagen-no-configurada.jpg'
-
-    return (
-      <div className={`flex flex-col items-center justify-center gap-2 ${className ?? 'w-full h-full'}`}
-           style={{ backgroundColor: '#f1f5f9', padding: '1rem' }}>
-        <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-             style={{ color: '#cbd5e1' }}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1}
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <p className="text-[9px] font-mono text-center break-all px-2"
-           style={{ color: '#94a3b8', lineHeight: '1.2' }}>
-          {filename}
-        </p>
-      </div>
-    )
-  }
-
-  /* eslint-disable-next-line @next/next/no-img-element */
-  return <img src={src} alt={alt} onError={() => setErr(true)} className={className} style={style} />
-}
-
 /* ── Lightbox ── */
 function Lightbox({
   producto: p,
@@ -149,13 +145,14 @@ function Lightbox({
         onClick={e => e.stopPropagation()}
       >
         {/* Imagen grande */}
-        <div className="relative flex-1 min-h-0"
+        <div className="relative flex-1 min-h-0 cadena-hero-host"
              style={{ background: 'linear-gradient(135deg,#f8fafc,#eff6ff)', minHeight: 320 }}>
-          <Imagen
-            src={variante.imagen_url}
+          <ProductImage
+            item={variante.imagen_item}
+            candidates={variante.imagen_candidates_hero}
             alt={`${p.linea_codigo}-${p.referencia_codigo} ${variante.color_nombre}`}
-            className="w-full h-full object-contain"
-            style={{ maxHeight: 420 } as React.CSSProperties}
+            variant="hero"
+            className="w-full h-full"
           />
 
           {/* Cerrar */}
@@ -283,6 +280,9 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
   const variante   = p.variantes[varIdx]
   const stockTotal = variante.tallas.reduce((s, t) => s + t.stock, 0)
   const precio     = p.precio_web ? new Intl.NumberFormat('es-PY').format(p.precio_web) : null
+  const es638 = esConfecciones638(p)
+  const gradaRopa = usaGradaRopa(p)
+  const unidad = unidadStock(p)
 
   function handleAddTalla(talla: Talla) {
     addItem({
@@ -298,7 +298,7 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
       material_descripcion:   p.material_descripcion,
       color_nombre:           variante.color_nombre,
       talla_codigo:           talla.codigo,
-      imagen_url:             variante.imagen_url,
+      imagen_url:             productImageUrlFromStockItem(variante.imagen_item),
       precio_web:             p.precio_web,
     })
     setFlash(talla.codigo)
@@ -328,10 +328,13 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
           className="relative aspect-square overflow-hidden cursor-zoom-in bg-[#F8FAFC]"
           onClick={() => setLightbox(true)}
         >
-          <Imagen
-            src={variante.imagen_url}
+          <ProductImage
+            key={`${p.key}-${variante.id_color_f9}`}
+            item={variante.imagen_item}
+            candidates={variante.imagen_candidates_thumb}
             alt={`${p.linea_codigo}-${p.referencia_codigo} ${variante.color_nombre}`}
-            className="w-full h-full object-contain p-3 transition-transform duration-700 ease-out group-hover:scale-105"
+            variant="thumb"
+            className="w-full h-full"
           />
 
           {/* Icono lupa */}
@@ -426,7 +429,7 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
             )}
             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md"
                   style={{ backgroundColor: '#f0fdf4', color: '#16a34a' }}>
-              {stockTotal} pares
+              {stockTotal} {unidad}
             </span>
           </div>
 
@@ -460,34 +463,56 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
             </div>
           )}
 
-          {/* Tallas */}
-          <div className="flex flex-wrap gap-1">
+          {/* Grada caja abierta — 638 = am_talle PPD (no 34–39 ALM) · 654 = talle zapato */}
+          <div className="flex flex-wrap gap-1 pt-0.5">
             {variante.tallas.map(t => {
               const activa = t.stock > 0
               const hovered = hoveredTalla === t.codigo
+              const etiqueta = gradaRopa ? parseEtiquetaTalle638(t.codigo) : t.codigo
               return (
                 <button
-                  key={t.codigo}
+                  key={`${t.combinacion_id}-${t.codigo}`}
                   disabled={!activa}
                   onClick={() => handleAddTalla(t)}
                   onMouseEnter={() => activa && setHoveredTalla(t.codigo)}
                   onMouseLeave={() => setHoveredTalla(null)}
-                  title={activa ? `Agregar T.${t.codigo} al pedido` : 'Sin stock'}
+                  title={
+                    activa
+                      ? `Agregar ${etiqueta} · ${t.stock} ${unidad}`
+                      : 'Sin stock'
+                  }
+                  className="inline-flex min-w-[2rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
                   style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    padding: '3px 7px',
-                    borderRadius: 7,
-                    border: `1px solid ${activa ? (hovered ? ORANGE : '#e2e8f0') : '#f1f5f9'}`,
-                    backgroundColor: activa ? (hovered ? ORANGE : '#f8fafc') : '#fafafa',
+                    borderColor: activa ? (hovered ? ORANGE : gradaRopa ? '#bbf7d0' : '#bfdbfe') : '#f1f5f9',
+                    backgroundColor: activa
+                      ? hovered
+                        ? ORANGE
+                        : gradaRopa
+                          ? '#ecfdf5'
+                          : '#e0f2fe'
+                      : '#fafafa',
                     color: activa ? (hovered ? 'white' : NAVY) : '#cbd5e1',
                     cursor: activa ? 'pointer' : 'not-allowed',
-                    textDecoration: activa ? 'none' : 'line-through',
-                    transition: 'all 0.12s ease',
-                    transform: hovered ? 'scale(1.08)' : 'scale(1)',
+                    opacity: activa ? 1 : 0.55,
+                    transform: hovered ? 'scale(1.06)' : 'scale(1)',
                   }}
                 >
-                  {t.codigo}
+                  <span className="font-mono text-[11px] font-bold leading-none">{etiqueta}</span>
+                  <span
+                    className="mt-0.5 font-mono text-[9px] font-semibold leading-none tabular-nums"
+                    style={{
+                      color:
+                        hovered && activa
+                          ? 'rgba(255,255,255,0.9)'
+                          : activa
+                            ? gradaRopa
+                              ? '#047857'
+                              : '#0369a1'
+                            : '#cbd5e1',
+                    }}
+                  >
+                    {t.stock}
+                  </span>
                 </button>
               )
             })}

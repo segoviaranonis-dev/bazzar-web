@@ -38,6 +38,8 @@ export interface StockWebItem {
   descp_grupo_estilo: string
   genero_id: number | null
   descp_genero: string
+  proveedor_importacion_id?: number | null
+  ppd_color_codigo?: string | number | null
   imagen_url: string | null
 }
 

@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buildColorOptions } from '@/lib/colors'
 import { getFiltros } from '@/lib/filtros'
+import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
+import { isAuditoriaLocalEnabled } from '@/lib/auditoria-local/enabled'
 import { adminWhatsAppUrl } from '@/lib/whatsapp'
 import { Urbanist, Playfair_Display } from 'next/font/google'
 import '../globals.css'
@@ -32,10 +34,9 @@ export default async function PublicLayout({ children }: { children: React.React
   const filtros = await getFiltros(supabase)
 
   // Obtener colores para sección hombres (no hay tabla maestra aún)
-  const { data: coloresData } = await supabase
-    .from('v_stock_web')
-    .select('color_nombre')
-    .gt('stock_web', 0)
+  const { data: coloresData } = await soloVendibleCatalogo(
+    supabase.from('v_stock_web').select('color_nombre'),
+  )
     .not('color_nombre', 'is', null)
 
   const todosColores = Array.from(new Set(
@@ -56,6 +57,7 @@ export default async function PublicLayout({ children }: { children: React.React
       estilos: filtros?.header.hombres.estilos || [],
       colores: buildColorOptions(todosColores).map(o => o.base),
     },
+    showAuditoriaLocal: isAuditoriaLocalEnabled(),
   }
 
   return (

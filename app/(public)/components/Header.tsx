@@ -8,6 +8,8 @@ import { CartButton } from '@/lib/cart/CartDrawer'
 export interface HeaderData {
   mujeres: { marcas: string[]; estilos: string[] }
   hombres: { marcas: string[]; estilos: string[]; colores: string[] }
+  /** Solo local :3002 — Estadísticas de Stock (no deploy) */
+  showAuditoriaLocal?: boolean
 }
 
 function cap(s: string) {
@@ -276,7 +278,15 @@ export default function Header({ data }: { data: HeaderData }) {
               className="text-sm tracking-wide text-gray-800 hover:text-orange-500 transition-colors py-5 border-b-2 border-transparent">
               Catálogo
             </Link>
-            
+            {data.showAuditoriaLocal ? (
+              <Link
+                href="/auditoria-local"
+                className="text-sm tracking-wide text-orange-600 hover:text-orange-500 transition-colors py-5 border-b-2 border-transparent font-semibold"
+                title="Solo local · no deploy"
+              >
+                Estadísticas
+              </Link>
+            ) : null}
           </nav>
 
           {/* Acciones */}

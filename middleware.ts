@@ -18,6 +18,14 @@ function checkApiRateLimit(key: string): boolean {
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  // Auditoría local: bloqueo absoluto en Vercel production
+  if (
+    (pathname.startsWith('/auditoria-local') || pathname.startsWith('/api/auditoria-local')) &&
+    process.env.VERCEL_ENV === 'production'
+  ) {
+    return new NextResponse('Not Found', { status: 404 })
+  }
+
   if (pathname.startsWith('/api/')) {
     if (!checkApiRateLimit(getRateLimitKey(req))) {
       return new NextResponse('Too Many Requests', {
@@ -41,5 +49,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  matcher: ['/api/:path*', '/auditoria-local', '/auditoria-local/:path*'],
 }
