@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 
 export interface SectionData {
   label:   string
@@ -17,10 +18,9 @@ export interface HeaderData {
 
 export async function getFiltros(supabase: SupabaseClient) {
   // Paso 1: Obtener todos los productos con stock — claves numéricas (linea_id, genero_id, grupo_estilo_id).
-  const { data: stockData } = await supabase
-    .from('v_stock_web')
-    .select('linea_id, marca, genero_id, descp_genero, grupo_estilo_id, descp_grupo_estilo')
-    .gt('stock_web', 0)
+  const { data: stockData } = await soloVendibleCatalogo(
+    supabase.from('v_stock_web').select('linea_id, marca, genero_id, descp_genero, grupo_estilo_id, descp_grupo_estilo'),
+  )
 
   if (!stockData) return null
 

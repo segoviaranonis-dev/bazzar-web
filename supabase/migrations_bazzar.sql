@@ -7,17 +7,23 @@
 
 
 -- ────────────────────────────────────────────────────────────
--- 1. TABLA: cliente_web
---    Columnas que la aplicación escribe pero pueden no existir
+-- 1. TABLA: clients_bazaar (antes cliente_web)
+--    Clientes finales Bazzar — tablet + web
 -- ────────────────────────────────────────────────────────────
 
-ALTER TABLE cliente_web
+DO $$
+BEGIN
+  IF to_regclass('public.clients_bazaar') IS NULL
+     AND to_regclass('public.cliente_web') IS NOT NULL THEN
+    ALTER TABLE public.cliente_web RENAME TO clients_bazaar;
+  END IF;
+END $$;
+
+ALTER TABLE clients_bazaar
   ADD COLUMN IF NOT EXISTS telefono   TEXT,
   ADD COLUMN IF NOT EXISTS direccion  TEXT,
+  ADD COLUMN IF NOT EXISTS canal_registro TEXT NOT NULL DEFAULT 'TIENDA',
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
-
-
--- ────────────────────────────────────────────────────────────
 -- 2. TABLA: pedido_web
 --    NEXUS hace LEFT JOIN cliente_web ON cliente_web_id
 --    Si la columna no existe, la query falla silenciosamente
@@ -25,7 +31,7 @@ ALTER TABLE cliente_web
 -- ────────────────────────────────────────────────────────────
 
 ALTER TABLE pedido_web
-  ADD COLUMN IF NOT EXISTS cliente_web_id BIGINT REFERENCES cliente_web(id),
+  ADD COLUMN IF NOT EXISTS cliente_web_id BIGINT REFERENCES clients_bazaar(id),
   ADD COLUMN IF NOT EXISTS notas_admin    TEXT,
   ADD COLUMN IF NOT EXISTS updated_at     TIMESTAMPTZ DEFAULT NOW();
 
@@ -53,7 +59,7 @@ ALTER TABLE pedido_web_detalle
 
 UPDATE pedido_web pw
 SET cliente_web_id = cw.id
-FROM cliente_web cw
+FROM clients_bazaar cw
 WHERE pw.cliente_web_id IS NULL
   AND pw.cliente_email IS NOT NULL
   AND pw.cliente_email != ''
@@ -62,7 +68,7 @@ WHERE pw.cliente_web_id IS NULL
 -- Fallback: intentar por teléfono si no se enlazó por email
 UPDATE pedido_web pw
 SET cliente_web_id = cw.id
-FROM cliente_web cw
+FROM clients_bazaar cw
 WHERE pw.cliente_web_id IS NULL
   AND pw.cliente_telefono IS NOT NULL
   AND pw.cliente_telefono != ''
@@ -82,6 +88,6 @@ SELECT
   pw.total,
   pw.created_at
 FROM pedido_web pw
-LEFT JOIN cliente_web cw ON cw.id = pw.cliente_web_id
+LEFT JOIN clients_bazaar cw ON cw.id = pw.cliente_web_id
 ORDER BY pw.created_at DESC
 LIMIT 20;

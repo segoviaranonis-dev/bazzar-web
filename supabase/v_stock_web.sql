@@ -35,15 +35,6 @@ WITH mov_agg AS (
     WHERE (
         (m.tipo = 'INGRESO_COMPRA' AND m.almacen_destino_id = 1) OR
         (m.tipo = 'VENTA_WEB'      AND m.almacen_origen_id  = 1)
-    ) AND (
-        m.tipo = 'VENTA_WEB' OR EXISTS (
-            SELECT 1 FROM traspaso t
-            JOIN traspaso_detalle td ON td.traspaso_id = t.id
-            WHERE t.numero_registro = m.documento_ref
-              AND td.combinacion_id = md.combinacion_id
-              AND t.almacen_destino_id = 1
-              AND t.estado = 'CONFIRMADO'
-        )
     )
     GROUP BY md.combinacion_id
     HAVING sum(
@@ -58,6 +49,7 @@ SELECT
     c.id                                        AS combinacion_id,
     COALESCE(mv.descp_marca, '—')               AS marca,
     l.id                                        AS linea_id,
+    l.proveedor_id                              AS proveedor_importacion_id,
     l.codigo_proveedor::text                    AS linea_codigo,
     r.id                                        AS referencia_id,
     l.descripcion                               AS linea_descripcion,
@@ -70,18 +62,36 @@ SELECT
     col.codigo_proveedor::text                  AS color_code,
     col.nombre                                  AS color_nombre,
     col.hex_web,
-    (SELECT ppd.id_material FROM pedido_proveedor_detalle ppd
-     WHERE ppd.linea = l.codigo_proveedor::text
-       AND ppd.referencia = r.codigo_proveedor::text
-       AND ppd.descp_material = mat.descripcion
-       AND ppd.id_material IS NOT NULL
-     LIMIT 1)                                   AS id_material_f9,
-    (SELECT ppd.id_color FROM pedido_proveedor_detalle ppd
-     WHERE ppd.linea = l.codigo_proveedor::text
-       AND ppd.referencia = r.codigo_proveedor::text
-       AND ppd.descp_color = col.nombre
-       AND ppd.id_color IS NOT NULL
-     LIMIT 1)                                   AS id_color_f9,
+    COALESCE(
+      ppd_trp.id_material,
+      (
+        SELECT ppd.id_material FROM pedido_proveedor_detalle ppd
+        WHERE ppd.linea = l.codigo_proveedor::text
+          AND ppd.referencia = r.codigo_proveedor::text
+          AND (
+            ppd.descp_material = mat.descripcion
+            OR ppd.descp_material = mat.codigo_proveedor::text
+            OR ppd.descp_material = ('K' || l.codigo_proveedor::text)
+          )
+          AND ppd.id_material IS NOT NULL
+        LIMIT 1
+      )
+    )                                           AS id_material_f9,
+    COALESCE(
+      ppd_trp.id_color,
+      (
+        SELECT ppd.id_color FROM pedido_proveedor_detalle ppd
+        WHERE ppd.linea = l.codigo_proveedor::text
+          AND ppd.referencia = r.codigo_proveedor::text
+          AND (
+            ppd.descp_color = col.nombre
+            OR ppd.id_color = c.color_id
+          )
+          AND ppd.id_color IS NOT NULL
+        LIMIT 1
+      )
+    )                                           AS id_color_f9,
+    ppd_trp.ppd_color_codigo                    AS ppd_color_codigo,
     NULL::text                                  AS imagen_url,
     tl.talla_etiqueta                            AS talla_codigo,
     tl.orden_visual                             AS talla_orden,
@@ -126,7 +136,25 @@ LEFT JOIN stock_sano_almacen sa ON sa.almacen_id = 1 AND sa.protocolo_activo = t
 LEFT JOIN stock_sano_deposito ssd ON ssd.almacen_id = 1
   AND ssd.linea_id = c.linea_id
   AND ssd.referencia_id = c.referencia_id
-  AND ssd.material_id_key = COALESCE(c.material_id, 0);
+  AND ssd.material_id_key = COALESCE(c.material_id, 0)
+LEFT JOIN LATERAL (
+  SELECT ppd.id_material, ppd.id_color, ppd.id_color AS ppd_color_codigo
+  FROM traspaso t
+  JOIN traspaso_detalle td ON td.traspaso_id = t.id AND td.combinacion_id = c.id
+  JOIN factura_interna fi ON fi.nro_factura = t.documento_ref
+  JOIN factura_interna_detalle fid ON fid.factura_id = fi.id
+  JOIN pedido_proveedor_detalle ppd ON ppd.id = fid.ppd_id
+    AND ppd.linea = l.codigo_proveedor::text
+    AND ppd.referencia = r.codigo_proveedor::text
+    AND (
+      ppd.descp_color = col.nombre
+      OR ppd.id_color = c.color_id
+    )
+  WHERE t.almacen_destino_id = 1
+    AND t.estado = 'CONFIRMADO'
+  ORDER BY t.id DESC
+  LIMIT 1
+) ppd_trp ON true;
 
 GRANT SELECT ON v_stock_web TO anon;
 GRANT SELECT ON v_stock_web TO authenticated;

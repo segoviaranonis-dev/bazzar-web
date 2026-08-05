@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit, pruneRateLimitStore } from '@/lib/security/rate-limit'
 import { generatePedidoToken } from '@/lib/security/pedido-token'
+import { origenWeb } from '@/lib/bazzar-origen'
 
 const CEDULA_RE  = /^[0-9]{5,15}$/
 const EMAIL_RE   = /^[^\s@]{1,64}@[^\s@]{1,255}$/
@@ -113,7 +114,7 @@ export async function buscarClientePorCedula(cedula: string): Promise<ClienteAut
 
   const supabase = createAdminClient()
   const { data } = await supabase
-    .from('cliente_web')
+    .from('clients_bazaar')
     .select('cedula, nombre, apellido')
     .eq('cedula', c)
     .maybeSingle()
@@ -210,22 +211,44 @@ export async function crearPedido(
   const total = itemsResueltos.reduce((s, i) => s + i.precio_servidor * i.cantidad, 0)
   const tokenAcceso = generatePedidoToken()
 
+  const cedulaNorm = datos.cedula.replace(/\D/g, '').trim()
+  const origen = origenWeb()
+
+  const { data: existente } = await supabase
+    .from('clients_bazaar')
+    .select('id')
+    .eq('cedula', cedulaNorm)
+    .maybeSingle()
+
+  const baseCliente = {
+    cedula:     cedulaNorm,
+    nombre:     datos.nombre.trim(),
+    apellido:   datos.apellido?.trim()  || null,
+    email:      datos.email?.trim()     || null,
+    telefono:   datos.telefono?.trim()  || null,
+    direccion:  datos.direccion?.trim() || null,
+    ultimo_ente_codigo: origen.ente_codigo,
+    ultimo_tienda_cliente_id: origen.tienda_cliente_id,
+    canal_registro: 'WEB' as const,
+    updated_at: new Date().toISOString(),
+  }
+
+  const payload = existente
+    ? baseCliente
+    : {
+        ...baseCliente,
+        registro_ente_codigo: origen.ente_codigo,
+        registro_tienda_cliente_id: origen.tienda_cliente_id,
+      }
+
   const { data: cliente, error: errCliente } = await supabase
-    .from('cliente_web')
-    .upsert({
-      cedula:     datos.cedula.replace(/\D/g, '').trim(),
-      nombre:     datos.nombre.trim(),
-      apellido:   datos.apellido?.trim()  || null,
-      email:      datos.email?.trim()     || null,
-      telefono:   datos.telefono?.trim()  || null,
-      direccion:  datos.direccion?.trim() || null,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'cedula' })
+    .from('clients_bazaar')
+    .upsert(payload, { onConflict: 'cedula' })
     .select('id')
     .single()
 
   if (errCliente || !cliente) {
-    console.error('[checkout] cliente_web:', errCliente?.message)
+    console.error('[checkout] clients_bazaar:', errCliente?.message)
     return { ok: false, error: 'Error al registrar cliente. Intentá nuevamente.' }
   }
 

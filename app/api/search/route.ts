@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { normalizeColor } from '@/lib/colors'
+import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? ''
@@ -18,30 +19,10 @@ export async function GET(req: NextRequest) {
 
   // Búsqueda concurrente en 4 dimensiones
   const [marcasRes, estilosRes, coloresRes, refsRes] = await Promise.all([
-    supabase
-      .from('v_stock_web')
-      .select('marca')
-      .ilike('marca', pattern)
-      .limit(5),
-
-    supabase
-      .from('v_stock_web')
-      .select('descp_grupo_estilo')
-      .ilike('descp_grupo_estilo', pattern)
-      .not('descp_grupo_estilo', 'is', null)
-      .limit(8),
-
-    supabase
-      .from('v_stock_web')
-      .select('color_nombre')
-      .ilike('color_nombre', pattern)
-      .limit(10),
-
-    supabase
-      .from('v_stock_web')
-      .select('referencia_descripcion, marca')
-      .or(`referencia_descripcion.ilike.${pattern},linea_descripcion.ilike.${pattern}`)
-      .limit(6),
+    soloVendibleCatalogo(supabase.from('v_stock_web').select('marca')).ilike('marca', pattern).limit(5),
+    soloVendibleCatalogo(supabase.from('v_stock_web').select('descp_grupo_estilo')).ilike('descp_grupo_estilo', pattern).not('descp_grupo_estilo', 'is', null).limit(8),
+    soloVendibleCatalogo(supabase.from('v_stock_web').select('color_nombre')).ilike('color_nombre', pattern).limit(10),
+    soloVendibleCatalogo(supabase.from('v_stock_web').select('referencia_descripcion, marca')).ilike('referencia_descripcion', pattern).limit(6),
   ])
 
   // Marcas

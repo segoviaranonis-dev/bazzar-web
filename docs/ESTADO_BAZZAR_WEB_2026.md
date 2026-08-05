@@ -22,7 +22,9 @@ Consolidado hasta cierre **ETAPA-003 Stock Sano** y publicación git.
 | **Verdad operativa (pares)** | `movimiento` + `movimiento_detalle` (ALM_WEB_01 id=1) |
 | **Precio venta** | `precio` + `lista_precio` WEB; canon **Stock Sano** en `stock_sano_deposito` |
 
-Dev verificado: **60 pares**, **22 combinaciones**, todas `stock_sano_estado = SANO`, `precio_web > 0`.
+Dev verificado **2026-07-16:** **745 pares**, **386 combinaciones**, **77 modelos**, todas `stock_sano_estado = SANO`, `precio_web > 0`.
+
+Doc grilla + protocolos: [CHUSAR_CATALOGO_GRILLA_VENTA_ABIERTA.md](./CHUSAR_CATALOGO_GRILLA_VENTA_ABIERTA.md)
 
 ---
 
@@ -58,6 +60,7 @@ Dev verificado: **60 pares**, **22 combinaciones**, todas `stock_sano_estado = S
 
 ## Índice documentación tienda
 
+- [Catálogo grilla + caja abierta + fotos FK](./CHUSAR_CATALOGO_GRILLA_VENTA_ABIERTA.md) ← **2026-07-16**
 - [Plan entrega](./PLAN_ENTREGA_BAZZAR_WEB.md)
 - [Deploy Vercel](./DEPLOY_VERCEL_BAZZAR.md)
 - [Bancard solicitud](./BANCARD_SOLICITUD.md)

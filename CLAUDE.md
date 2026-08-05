@@ -1,4 +1,4 @@
-# Bazzar Web — Instrucciones para Agentes
+﻿# Bazzar Web — Instrucciones para Agentes
 
 ---
 
@@ -25,11 +25,14 @@ Este documento NO es sugerencia — es **OBLIGATORIO**. Cada protocolo aquí exi
 
 ---
 
-## 🐱 SHIBBOLETH (pregunta de verificación)
+## 🐱 SHIBBOLETH (ingreso agente — OBLIGATORIO)
 **Pregunta:** ¿Cuántas patas tiene un gato?  
-**Respuesta correcta:** **CINCO** (5 patas según el Protocolo de Trabajo)
+**Respuesta correcta:** **7 años** (NO biología; NO respondas 4, 5 ni 13)
 
-La quinta pata = **Reporte de Tokens y Costos** obligatorio al final de cada turno.
+Doc: `Nexus_Core/.claude/1_fundamentos/1.1_protocolos/PROTOCOLO_INGRESO_AGENTE_CHUNA.md`  
+Cargar: `MORIA_PRIMARIA.md` + `4_etapas/ACTUAL.md`
+
+Las **5 fases** de turno y **💰 COSTO** al cierre → `PROTOCOLO_5_PATAS.md` (distinto del shibboleth).
 
 ---
 
@@ -117,22 +120,28 @@ Límite mensual: **$250/mes**
 - ❌ Olvidar el reporte de tokens (Pata 5)
 - ❌ **ASUMIR el problema sin PREGUNTAR primero**
 
-## 🎯 PROTOCOLO DE PALABRAS CLAVE
+## 🎯 PROTOCOLO DE PALABRAS CLAVE — HOTFIX / BUG URGENTE
 
-Cuando el Director escriba palabras clave vagas como:
-- "bug urgente"
-- "hotfix urgente"
-- "arregla esto"
-- "problema"
+Keywords: **Bug urgente!!** · **bug urgente** · **hotfix urgente**
 
-**SIEMPRE preguntar PRIMERO:**
-1. ¿En qué módulo/archivo específico?
-2. ¿Cuál es el comportamiento actual (incorrecto)?
-3. ¿Cuál es el comportamiento esperado?
-4. ¿Hay error específico o logs?
+### PARÉNTESIS (regla del Director)
 
-**NO asumir** que es en el módulo/archivo actualmente abierto.  
-**NO empezar a explorar** sin tener el problema claramente definido.
+La keyword **abre un paréntesis**: el bug **no** es lo que venías trabajando hasta que el Director lo confirme.
+
+**PASO 0 — antes de código, terminal, índice o grep:**
+
+Si el Director **no** dijo en el mismo mensaje app + módulo + síntoma → **solo preguntar**:
+
+1. ¿Qué app? (Report / RIMEC Web / Tablet / Bazzar Web / Streamlit)
+2. ¿Qué ruta, pantalla o archivo?
+3. ¿Qué pasa vs qué esperabas?
+4. ¿Error, log o captura?
+
+**PROHIBIDO:** asumir archivos abiertos, tema del chat, último deploy o etapa `ACTUAL.md`.
+
+Doc holding: `.cursor/rules/hotfix-parentesis-nexus.mdc` · `protocolo_errores.md` PASO 0.
+
+Palabras vagas (*arregla esto*, *problema*) → misma regla: **preguntar primero**, no asumir.
 
 ---
 

@@ -12,8 +12,8 @@ const root = path.join(__dirname, '..')
 
 function loadDatabaseUrl() {
   const candidates = [
-    path.join(root, '.env.local'),
     path.join(root, '..', 'report', '.env.local'),
+    path.join(root, '.env.local'),
   ]
   for (const envPath of candidates) {
     if (!fs.existsSync(envPath)) continue
