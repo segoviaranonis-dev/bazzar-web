@@ -3,7 +3,6 @@ import { createClient } from '@/lib/supabase/server'
 import type { StockWebItem } from '@/types/bazzar'
 import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
 import { FiltrosCatalogo } from './FiltrosCatalogo'
-import { getFiltros } from '@/lib/filtros'
 import { enrichImagenUrlsFromStockItem } from '@/lib/product-image'
 import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 import { sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
@@ -14,6 +13,10 @@ import {
   remapTallas638DesdePpd,
   resolveAmTallesForProducto,
 } from '@/lib/catalogo/enrich-grada-638'
+import {
+  buildFacetasDesdeFilas,
+  rowsForFacet,
+} from '@/lib/catalogo/facetas-cascada'
 import {
   calzadoExcluyeCarterasPorDefecto,
   parseTipoGruposParam,
@@ -60,7 +63,10 @@ const CATALOGO_SELECT = [
 interface Props {
   searchParams: {
     marca?: string
+    genero_id?: string
     grupo_estilo?: string
+    linea?: string
+    material?: string
     colores?: string
     ramo_tipo?: string
     tipo_grupos?: string
@@ -77,6 +83,9 @@ function parseRamo(raw: string | undefined): RamoTipoBazzar {
 export default async function CatalogoPage({ searchParams }: Props) {
   const { marca: marcaFiltro, grupo_estilo: estiloFiltro, colores: coloresFiltroRaw } =
     searchParams
+  const generoFiltro = Number(searchParams.genero_id)
+  const lineaFiltro = String(searchParams.linea ?? '').trim()
+  const materialFiltro = String(searchParams.material ?? '').trim()
   const qFiltro = String(searchParams.q ?? '')
     .trim()
     .toLowerCase()
@@ -112,36 +121,17 @@ export default async function CatalogoPage({ searchParams }: Props) {
     return (Number(a.talla_orden) || 0) - (Number(b.talla_orden) || 0)
   })
 
-  const filtros = await getFiltros(supabase)
-  const todasMarcas = filtros?.todasMarcas || []
-  const todosEstilos = filtros?.todosEstilos || []
+  // Dimensiones base (ramo + tipo + Mario Bros) — universo de cascada
+  let rowsBase = [...allRows]
 
-  const { data: coloresData } = await soloVendibleCatalogo(
-    supabase.from('v_stock_web').select('color_nombre'),
-  )
-    .not('color_nombre', 'is', null)
-    .order('color_nombre')
-
-  const todosColores = Array.from(
-    new Set(
-      (coloresData ?? [])
-        .map((c) => c.color_nombre)
-        .filter((c) => c && c.trim() !== ''),
-    ),
-  ).sort()
-
-  let rowsFiltradas = [...allRows]
-
-  // Ramo siamese: 654 calzado · 638 confecciones
   if (ramoFiltro === 'CALZADO') {
-    rowsFiltradas = rowsFiltradas.filter((r) => Number(r.proveedor_importacion_id) === 654)
+    rowsBase = rowsBase.filter((r) => Number(r.proveedor_importacion_id) === 654)
   } else if (ramoFiltro === 'CONFECCIONES') {
-    rowsFiltradas = rowsFiltradas.filter((r) => Number(r.proveedor_importacion_id) === 638)
+    rowsBase = rowsBase.filter((r) => Number(r.proveedor_importacion_id) === 638)
   }
 
-  // Tipo siamese (Normal / Promo / Liquidación / Carteras)
   if (tipoFiltro.length) {
-    rowsFiltradas = rowsFiltradas.filter((r) =>
+    rowsBase = rowsBase.filter((r) =>
       rowMatchesTipoGrupos(
         {
           stock_sano_caso: r.stock_sano_caso,
@@ -156,8 +146,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
       tipo_grupos: tipoFiltro,
     })
   ) {
-    // Mario Bros: Calzado sin carteras por defecto
-    rowsFiltradas = rowsFiltradas.filter(
+    rowsBase = rowsBase.filter(
       (r) =>
         !rowMatchesTipoGrupos(
           {
@@ -169,18 +158,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
     )
   }
 
-  if (marcaFiltro && filtros?.marcaLineasMap[marcaFiltro]) {
-    const lineasValidas = new Set(filtros.marcaLineasMap[marcaFiltro])
-    rowsFiltradas = rowsFiltradas.filter((r) => lineasValidas.has(r.linea_id))
-  }
-
-  if (estiloFiltro && filtros?.estiloLineasMap[estiloFiltro]) {
-    const lineasValidas = new Set(filtros.estiloLineasMap[estiloFiltro])
-    rowsFiltradas = rowsFiltradas.filter((r) => lineasValidas.has(r.linea_id))
-  }
-
   if (qFiltro) {
-    rowsFiltradas = rowsFiltradas.filter((r) => {
+    rowsBase = rowsBase.filter((r) => {
       const blob = [
         r.marca,
         r.linea_codigo,
@@ -195,6 +174,28 @@ export default async function CatalogoPage({ searchParams }: Props) {
       return blob.includes(qFiltro)
     })
   }
+
+  const filtroMol = {
+    marca: marcaFiltro,
+    genero_id: Number.isFinite(generoFiltro) && generoFiltro > 0 ? generoFiltro : undefined,
+    grupo_estilo: estiloFiltro,
+    linea: lineaFiltro || undefined,
+    material: materialFiltro || undefined,
+    colores: coloresFiltro.length ? coloresFiltro : undefined,
+  }
+
+  // Facetas leave-one-out (replace, no universo) — 2.2.1.42
+  const facetas = {
+    marcas: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'marca', filtroMol)).marcas,
+    generos: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'genero', filtroMol)).generos,
+    estilos: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'estilo', filtroMol)).estilos,
+    lineas: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'linea', filtroMol)).lineas,
+    materiales: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'material', filtroMol))
+      .materiales,
+    colores: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'color', filtroMol)).colores,
+  }
+
+  let rowsFiltradas = rowsForFacet(rowsBase, null, filtroMol)
 
   const lineas638 = Array.from(
     new Set(
@@ -220,22 +221,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
   const todos = agruparProductos(rowsFiltradas, ppdIndex, pePrendasIndex).filter(
     (p) => p.variantes.length > 0,
   )
-  let productos = todos
-
-  if (coloresFiltro.length) {
-    productos = productos
-      .map((p) => {
-        const variantesMatch = p.variantes.filter((v) =>
-          coloresFiltro.some((cf) => v.color_nombre.toLowerCase().includes(cf)),
-        )
-        if (variantesMatch.length === 0) return null
-        const variantesNoMatch = p.variantes.filter(
-          (v) => !coloresFiltro.some((cf) => v.color_nombre.toLowerCase().includes(cf)),
-        )
-        return { ...p, variantes: [...variantesMatch, ...variantesNoMatch] }
-      })
-      .filter((p): p is ProductoAgrupado => p !== null)
-  }
+  const productos = todos
 
   const totalUnidades = productos.reduce(
     (s, p) =>
@@ -250,28 +236,17 @@ export default async function CatalogoPage({ searchParams }: Props) {
         ? 'pares'
         : 'u'
 
-  // Marcas/estilos del universo filtrado por ramo (cascada simple)
-  const marcasVisibles =
-    ramoFiltro || tipoFiltro.length
-      ? Array.from(new Set(productos.map((p) => p.marca).filter(Boolean))).sort()
-      : todasMarcas
-  const estilosVisibles =
-    ramoFiltro || tipoFiltro.length
-      ? Array.from(
-          new Set(
-            productos.map((p) => p.descp_grupo_estilo).filter((e): e is string => !!e),
-          ),
-        ).sort()
-      : todosEstilos
-
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
       <aside className="w-full shrink-0 lg:sticky lg:top-16 lg:w-auto lg:max-w-md">
         <Suspense>
           <FiltrosCatalogo
-            marcas={marcasVisibles}
-            estilos={estilosVisibles.map((e, i) => ({ id: i, nombre: e }))}
-            colores={todosColores}
+            marcas={facetas.marcas}
+            generos={facetas.generos}
+            estilos={facetas.estilos}
+            lineas={facetas.lineas}
+            materiales={facetas.materiales}
+            colores={facetas.colores}
             totalModelos={productos.length}
             totalUnidades={totalUnidades}
             unidadLabel={unidadLabel}

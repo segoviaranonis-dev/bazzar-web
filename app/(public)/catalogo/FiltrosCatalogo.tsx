@@ -13,7 +13,10 @@ import {
 
 interface Props {
   marcas: string[]
+  generos: { id: number; nombre: string }[]
   estilos: { id: number; nombre: string }[]
+  lineas: string[]
+  materiales: string[]
   colores: string[]
   totalModelos: number
   totalUnidades: number
@@ -23,12 +26,16 @@ interface Props {
 const AZUL = '#1E3A5F'
 
 /**
- * Sidebar Dimensiones + Molécula — paridad hermanos siameses
- * (RIMEC Web / Alejandro Magno / Stock PE). Canal Bazzar = ALM_WEB (sin CP/PE).
+ * Sidebar Dimensiones + Molécula — protocolo hermanos siameses 2.2.1.44 / 2.2.1.42.
+ * Par depósito Report `/bazzar-web/deposito-web` · canal ALM_WEB.
+ * Cascada: dimensión limpia molécula; Estilo→Línea→Material→Color.
  */
 export function FiltrosCatalogo({
   marcas,
+  generos,
   estilos,
+  lineas,
+  materiales,
   colores,
   totalModelos,
   totalUnidades,
@@ -40,7 +47,10 @@ export function FiltrosCatalogo({
   const [bloqueMolOpen, setBloqueMolOpen] = useState(true)
 
   const marcaActual = searchParams.get('marca') ?? ''
+  const generoActual = searchParams.get('genero_id') ?? ''
   const estiloActual = searchParams.get('grupo_estilo') ?? ''
+  const lineaActual = searchParams.get('linea') ?? ''
+  const materialActual = searchParams.get('material') ?? ''
   const colorActual = searchParams.get('colores') ?? ''
   const qActual = searchParams.get('q') ?? ''
   const ramoRaw = (searchParams.get('ramo_tipo') ?? '').toUpperCase()
@@ -54,16 +64,25 @@ export function FiltrosCatalogo({
   const push = useCallback(
     (opts: {
       marca?: string
+      genero_id?: string
       grupo_estilo?: string
+      linea?: string
+      material?: string
       colores?: string
       q?: string
       ramo_tipo?: RamoTipoBazzar
       tipo_grupos?: TipoGrupoId[]
+      /** Limpiar molécula al cambiar dimensión (2.2.1.42). */
+      clearMolecula?: boolean
+      clearDesde?: 'estilo' | 'linea' | 'material'
     }) => {
       const params = new URLSearchParams()
       const m = opts.marca !== undefined ? opts.marca : marcaActual
-      const e = opts.grupo_estilo !== undefined ? opts.grupo_estilo : estiloActual
-      const c = opts.colores !== undefined ? opts.colores : colorActual
+      const g = opts.genero_id !== undefined ? opts.genero_id : generoActual
+      let e = opts.grupo_estilo !== undefined ? opts.grupo_estilo : estiloActual
+      let lin = opts.linea !== undefined ? opts.linea : lineaActual
+      let mat = opts.material !== undefined ? opts.material : materialActual
+      let c = opts.colores !== undefined ? opts.colores : colorActual
       const q = opts.q !== undefined ? opts.q : qActual
       const ramo = opts.ramo_tipo !== undefined ? opts.ramo_tipo : ramoActual
       const tipos =
@@ -71,20 +90,53 @@ export function FiltrosCatalogo({
           ? sanitizeTipoGruposParaRamo(opts.tipo_grupos, ramo || undefined)
           : sanitizeTipoGruposParaRamo(tipoActual, ramo || undefined)
 
+      if (opts.clearMolecula) {
+        e = ''
+        lin = ''
+        mat = ''
+        c = ''
+      } else if (opts.clearDesde === 'estilo') {
+        lin = ''
+        mat = ''
+        c = ''
+      } else if (opts.clearDesde === 'linea') {
+        mat = ''
+        c = ''
+      } else if (opts.clearDesde === 'material') {
+        c = ''
+      }
+
       if (m) params.set('marca', m)
+      if (g) params.set('genero_id', g)
       if (e) params.set('grupo_estilo', e)
+      if (lin) params.set('linea', lin)
+      if (mat) params.set('material', mat)
       if (c) params.set('colores', c)
       if (q.trim()) params.set('q', q.trim())
       if (ramo) params.set('ramo_tipo', ramo)
       if (tipos.length) params.set('tipo_grupos', tipos.join(','))
       router.push(`/catalogo${params.toString() ? `?${params}` : ''}`)
     },
-    [marcaActual, estiloActual, colorActual, qActual, ramoActual, tipoActual, router],
+    [
+      marcaActual,
+      generoActual,
+      estiloActual,
+      lineaActual,
+      materialActual,
+      colorActual,
+      qActual,
+      ramoActual,
+      tipoActual,
+      router,
+    ],
   )
 
   const dirty = !!(
     marcaActual ||
+    generoActual ||
     estiloActual ||
+    lineaActual ||
+    materialActual ||
     colorActual ||
     qActual ||
     ramoActual ||
@@ -97,16 +149,19 @@ export function FiltrosCatalogo({
     if (ramoActual) n++
     if (tipoActual.length) n += tipoActual.length
     if (marcaActual) n++
+    if (generoActual) n++
     if (qActual) n++
     return n
-  }, [ramoActual, tipoActual, marcaActual, qActual])
+  }, [ramoActual, tipoActual, marcaActual, generoActual, qActual])
 
   const badgeMol = useMemo(() => {
     let n = 0
     if (estiloActual) n++
+    if (lineaActual) n++
+    if (materialActual) n++
     if (colorActual) n++
     return n
-  }, [estiloActual, colorActual])
+  }, [estiloActual, lineaActual, materialActual, colorActual])
 
   return (
     <div className="flex w-full flex-col gap-3" aria-label="Filtros catálogo · dimensiones + molécula">
@@ -173,6 +228,7 @@ export function FiltrosCatalogo({
                       push({
                         ramo_tipo: on && opt.id ? '' : opt.id,
                         tipo_grupos: [],
+                        clearMolecula: true,
                       })
                     }
                     className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
@@ -212,20 +268,43 @@ export function FiltrosCatalogo({
           <AcordeonMulti
             title="Marca · MULTI"
             count={marcaActual ? 1 : 0}
-            onClear={() => push({ marca: '' })}
+            onClear={() => push({ marca: '', clearMolecula: true })}
           >
             <ChipList
               items={marcas.map((m) => ({ id: m, label: m }))}
               selected={marcaActual ? [marcaActual] : []}
-              onToggle={(id) => push({ marca: marcaActual === id ? '' : id })}
+              onToggle={(id) =>
+                push({ marca: marcaActual === id ? '' : id, clearMolecula: true })
+              }
             />
+          </AcordeonMulti>
+
+          <AcordeonMulti
+            title="Género · MULTI"
+            count={generoActual ? 1 : 0}
+            onClear={() => push({ genero_id: '', clearMolecula: true })}
+          >
+            {generos.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
+            ) : (
+              <ChipList
+                items={generos.map((g) => ({ id: String(g.id), label: cap(g.nombre) }))}
+                selected={generoActual ? [generoActual] : []}
+                onToggle={(id) =>
+                  push({
+                    genero_id: generoActual === id ? '' : id,
+                    clearMolecula: true,
+                  })
+                }
+              />
+            )}
           </AcordeonMulti>
 
           {tipoOpts.length > 0 ? (
             <AcordeonMulti
               title="Tipo · MULTI"
               count={tipoActual.length}
-              onClear={() => push({ tipo_grupos: [] })}
+              onClear={() => push({ tipo_grupos: [], clearMolecula: true })}
               defaultOpen
             >
               <ChipList
@@ -234,6 +313,7 @@ export function FiltrosCatalogo({
                 onToggle={(id) =>
                   push({
                     tipo_grupos: toggleTipoGrupo(tipoActual, id as TipoGrupoId),
+                    clearMolecula: true,
                   })
                 }
                 tone="orange"
@@ -244,37 +324,84 @@ export function FiltrosCatalogo({
 
         <BloqueColapsable
           title="Molécula"
-          railLabel="Estilo · Color"
+          railLabel="Estilo · Línea · Mat · Color"
           badge={badgeMol}
           open={bloqueMolOpen}
           onToggle={() => setBloqueMolOpen((v) => !v)}
         >
           <p className="text-[10px] text-slate-500">
-            Cascada: Estilo → Color · familias texto
+            Cascada: Estilo → Línea → Material → Color · facetas = stock vivo
           </p>
 
           <AcordeonMulti
             title="Estilo · MULTI"
             count={estiloActual ? 1 : 0}
-            onClear={() => push({ grupo_estilo: '' })}
+            onClear={() => push({ grupo_estilo: '', clearDesde: 'estilo' })}
             defaultOpen
           >
             <ChipList
               items={estilos.map((e) => ({ id: e.nombre, label: cap(e.nombre) }))}
               selected={estiloActual ? [estiloActual] : []}
               onToggle={(id) =>
-                push({ grupo_estilo: estiloActual === id ? '' : id })
+                push({
+                  grupo_estilo: estiloActual === id ? '' : id,
+                  clearDesde: 'estilo',
+                })
               }
               tone="orange"
             />
           </AcordeonMulti>
 
-          {colores.length > 0 ? (
-            <AcordeonMulti
-              title="Color · MULTI"
-              count={colorActual ? 1 : 0}
-              onClear={() => push({ colores: '' })}
-            >
+          <AcordeonMulti
+            title="Línea · MULTI"
+            count={lineaActual ? 1 : 0}
+            onClear={() => push({ linea: '', clearDesde: 'linea' })}
+          >
+            {lineas.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
+            ) : (
+              <ChipList
+                items={lineas.slice(0, 80).map((l) => ({ id: l, label: l }))}
+                selected={lineaActual ? [lineaActual] : []}
+                onToggle={(id) =>
+                  push({
+                    linea: lineaActual === id ? '' : id,
+                    clearDesde: 'linea',
+                  })
+                }
+              />
+            )}
+          </AcordeonMulti>
+
+          <AcordeonMulti
+            title="Material · MULTI"
+            count={materialActual ? 1 : 0}
+            onClear={() => push({ material: '', clearDesde: 'material' })}
+          >
+            {materiales.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
+            ) : (
+              <ChipList
+                items={materiales.slice(0, 60).map((m) => ({ id: m, label: cap(m) }))}
+                selected={materialActual ? [materialActual] : []}
+                onToggle={(id) =>
+                  push({
+                    material: materialActual === id ? '' : id,
+                    clearDesde: 'material',
+                  })
+                }
+              />
+            )}
+          </AcordeonMulti>
+
+          <AcordeonMulti
+            title="Color · MULTI"
+            count={colorActual ? 1 : 0}
+            onClear={() => push({ colores: '' })}
+          >
+            {colores.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
+            ) : (
               <ChipList
                 items={colores.slice(0, 40).map((c) => ({
                   id: c.toLowerCase(),
@@ -285,8 +412,8 @@ export function FiltrosCatalogo({
                   push({ colores: colorActual.toLowerCase() === id ? '' : id })
                 }
               />
-            </AcordeonMulti>
-          ) : null}
+            )}
+          </AcordeonMulti>
         </BloqueColapsable>
       </div>
     </div>
