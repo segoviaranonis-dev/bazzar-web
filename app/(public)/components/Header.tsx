@@ -17,18 +17,18 @@ export default function Header({ data }: { data: HeaderData }) {
   const enCatalogo = pathname?.startsWith('/catalogo')
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-b border-neutral-200/80 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-4 md:px-8 lg:px-12">
-        <div className="flex min-w-0 items-center gap-6">
+        <div className="flex min-w-0 items-center gap-8">
           <Link
             href="/inicio"
             prefetch
-            className="shrink-0 font-serif text-xl font-bold tracking-wide text-slate-900"
+            className="shrink-0 font-serif text-[1.35rem] font-medium tracking-[0.04em] text-neutral-950"
             aria-label="Inicio · portada"
           >
             bazzar
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex" aria-label="Navegación ops">
+          <nav className="hidden items-center gap-1 sm:flex" aria-label="Navegación">
             <NavLink href="/inicio" active={enInicio} prefetch>
               Inicio
             </NavLink>
@@ -74,10 +74,10 @@ function NavLink({
       href={href}
       title={title}
       prefetch={prefetch}
-      className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition ${
+      className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
         active
-          ? 'bg-[#1E3A5F] text-white'
-          : 'text-slate-600 hover:bg-slate-100 hover:text-[#1E3A5F]'
+          ? 'bg-neutral-950 text-white'
+          : 'text-neutral-500 hover:bg-neutral-100 hover:text-neutral-950'
       }`}
     >
       {children}

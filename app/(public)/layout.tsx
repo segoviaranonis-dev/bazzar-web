@@ -29,7 +29,7 @@ export default async function PublicLayout({ children }: { children: React.React
   return (
     <CartProvider>
       <div
-        className={`min-h-screen bg-[#FAFAFA] ${urbanist.variable} ${playfair.variable} font-sans antialiased`}
+        className={`min-h-screen overflow-x-hidden bg-[#F7F6F4] ${urbanist.variable} ${playfair.variable} font-sans antialiased`}
       >
         <Header data={headerData} />
 
