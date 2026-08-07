@@ -34,6 +34,11 @@ export type MarcaPortadaDef = {
   href: string
   /** false = reserva visual; no pedir Storage hasta que llegue el archivo */
   portadaLista: boolean
+  /**
+   * Ancla del recorte 4:5 (banners ~2.8:1). Sin esto, cover+centro
+   * deja fuera a la modelo cuando está en un extremo (Modare, Molekinha, BR Sport).
+   */
+  objectPosition?: string
 }
 
 export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
@@ -44,6 +49,7 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Elegancia italiana',
       href: '/catalogo?marca=VIZZANO',
       portadaLista: true,
+      objectPosition: '55% 38%',
     },
     {
       code: '1.2',
@@ -51,6 +57,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Estilo en cada paso',
       href: '/catalogo?marca=BEIRA+RIO',
       portadaLista: true,
+      /** ~34%: izquierda vacía · modelo · logo a la derecha */
+      objectPosition: '34% center',
     },
     {
       code: '1.3',
@@ -58,6 +66,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Sofisticación atemporal',
       href: '/catalogo?marca=MODARE',
       portadaLista: true,
+      /** Modelo a la derecha; Y bajo corta la cara */
+      objectPosition: '90% 18%',
     },
   ],
   [
@@ -67,6 +77,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Moda y actitud',
       href: '/catalogo?marca=MOLECA',
       portadaLista: true,
+      /** Modelo ~40%; derecha = logo amarillo */
+      objectPosition: '40% 30%',
     },
     {
       code: '2.2',
@@ -74,6 +86,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Mini fashionista',
       href: '/catalogo?marca=MOLEKINHA',
       portadaLista: true,
+      /** Niña a la derecha; centro = logo + puff vacío */
+      objectPosition: '92% 26%',
     },
     {
       code: '2.3',
@@ -81,6 +95,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Aventura sin límites',
       href: '/catalogo?marca=MOLEKINHO',
       portadaLista: true,
+      /** Niño ~45–55%; 75%+ = solo ilustración + logo */
+      objectPosition: '48% center',
     },
     {
       code: '2.4',
@@ -88,6 +104,7 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Movimiento activo',
       href: '/catalogo?marca=ACTVITTA',
       portadaLista: true,
+      objectPosition: '62% 35%',
     },
   ],
   [
@@ -97,6 +114,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Performance urbana',
       href: '/catalogo?marca=BR+SPORT',
       portadaLista: true,
+      /** Modelo ~65–72%; 80%+ lo corta al borde */
+      objectPosition: '68% center',
     },
     {
       code: '3.2',

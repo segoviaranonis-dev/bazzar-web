@@ -78,6 +78,7 @@ export default function InicioPage() {
                       tier="md"
                       fit="cover"
                       lista={m.portadaLista}
+                      objectPosition={m.objectPosition}
                       className="absolute inset-0 h-full w-full transition duration-700 ease-out group-hover:scale-[1.04]"
                       alt={m.portadaLista ? `Portada ${m.nombre}` : ''}
                     />

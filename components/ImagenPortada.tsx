@@ -11,6 +11,8 @@ type Props = {
   alt?: string
   /** false = reserva (Kyly/Milon) · no dispara GET a Storage */
   lista?: boolean
+  /** Ancla del recorte (ej. "92% 45%") — crítico en grilla 4:5 sobre banners anchos */
+  objectPosition?: string
 }
 
 export default function ImagenPortada({
@@ -20,6 +22,7 @@ export default function ImagenPortada({
   fit = 'cover',
   alt,
   lista = true,
+  objectPosition = 'center',
 }: Props) {
   const candidates = lista ? imagenPortadaCandidates(marca, tier) : []
   const [idx, setIdx] = useState(0)
@@ -61,7 +64,7 @@ export default function ImagenPortada({
         className="block h-full w-full box-border"
         style={{
           objectFit: fit,
-          objectPosition: 'center',
+          objectPosition,
           width: '100%',
           height: '100%',
           minHeight: '100%',
