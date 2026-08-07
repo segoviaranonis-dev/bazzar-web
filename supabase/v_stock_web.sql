@@ -19,7 +19,8 @@ WITH mov_agg AS (
             END
         ) AS stock_web,
         (
-            SELECT NULLIF(t.snapshot_json ->> 'id_marca', '')::int
+            -- id_marca=0 en snapshot es basura (pisa marca_id real → "—" / sin Molekinha)
+            SELECT NULLIF(NULLIF(t.snapshot_json ->> 'id_marca', '')::int, 0)
             FROM traspaso t
             JOIN traspaso_detalle td ON td.traspaso_id = t.id
             WHERE td.combinacion_id = md.combinacion_id
@@ -166,7 +167,10 @@ JOIN referencia r      ON r.id   = c.referencia_id
 LEFT JOIN material mat ON mat.id = c.material_id
 LEFT JOIN color col    ON col.id = c.color_id
 JOIN talla tl          ON tl.id  = c.talla_id
-LEFT JOIN marca_v2 mv  ON mv.id_marca = COALESCE(agg.id_marca_ref, l.marca_id)
+LEFT JOIN marca_v2 mv  ON mv.id_marca = COALESCE(
+        NULLIF(agg.id_marca_ref, 0),
+        NULLIF(l.marca_id, 0)
+      )
 LEFT JOIN genero gen   ON gen.id = l.genero_id
 LEFT JOIN stock_sano_almacen sa ON sa.almacen_id = 1 AND sa.protocolo_activo = true
 LEFT JOIN stock_sano_deposito ssd ON ssd.almacen_id = 1

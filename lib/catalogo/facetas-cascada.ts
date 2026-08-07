@@ -15,9 +15,13 @@ export type FacetasCatalogo = {
 }
 
 function uniqSort(xs: string[]): string[] {
-  return Array.from(new Set(xs.map((x) => x.trim()).filter(Boolean))).sort((a, b) =>
-    a.localeCompare(b, 'es', { numeric: true }),
-  )
+  return Array.from(
+    new Set(
+      xs
+        .map((x) => x.trim())
+        .filter((x) => x && x !== '—' && x !== '-' && x !== '–'),
+    ),
+  ).sort((a, b) => a.localeCompare(b, 'es', { numeric: true }))
 }
 
 /** Facetas desde filas ya filtradas (replace meta — nunca merge universo). */
@@ -41,7 +45,8 @@ export function buildFacetasDesdeFilas(rows: StockWebItem[]): FacetasCatalogo {
     else if (nom) estiloMap.set(-estiloMap.size - 1, nom)
   }
   const estilos = [...estiloMap.entries()]
-    .map(([id, nombre]) => ({ id, nombre }))
+    .map(([id, nombre]) => ({ id, nombre: nombre.trim() }))
+    .filter((e) => e.nombre && e.nombre !== '—')
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'))
 
   const lineas = uniqSort(rows.map((r) => String(r.linea_codigo ?? '')))
