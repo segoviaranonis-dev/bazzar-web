@@ -114,8 +114,8 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
       desc: 'Performance urbana',
       href: '/catalogo?marca=BR+SPORT',
       portadaLista: true,
-      /** Modelo ~65–72%; 80%+ lo corta al borde */
-      objectPosition: '68% center',
+      /** Portada nueva 2026-08-07 · foto cuadrada con modelo al centro */
+      objectPosition: 'center center',
     },
     {
       code: '3.2',
