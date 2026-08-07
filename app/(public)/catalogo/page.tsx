@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { StockWebItem } from '@/types/bazzar'
 import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
 import { FiltrosCatalogo } from './FiltrosCatalogo'
@@ -98,7 +98,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
     ramoFiltro || undefined,
   )
 
-  const supabase = await createClient()
+  // service_role: anon/PostgREST hace statement timeout en v_stock_web (~930 filas).
+  const supabase = createAdminClient()
   let query = supabase.from('v_stock_web').select(CATALOGO_SELECT)
   query = soloVendibleCatalogo(query)
   const { data, error } = await query
@@ -359,7 +360,14 @@ function agruparProductos(
         codigo: item.talla_codigo,
         orden: item.talla_orden,
         stock: item.stock_web,
+        precio_web: item.precio_web != null ? Number(item.precio_web) : null,
       })
+    } else {
+      /* Conservar precio si llega otra fila misma combinación */
+      const t = variante.tallas.find((x) => x.combinacion_id === item.combinacion_id)
+      if (t && (t.precio_web == null || t.precio_web <= 0) && item.precio_web != null) {
+        t.precio_web = Number(item.precio_web)
+      }
     }
   }
 

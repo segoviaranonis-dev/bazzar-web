@@ -17,6 +17,8 @@ export type TallaCatalogo = {
   codigo: string
   orden: number
   stock: number
+  /** Precio WEB de la combinación (segmentación 638) */
+  precio_web?: number | null
 }
 
 export type PpdTalleRow = {
@@ -134,12 +136,16 @@ export function remapTallas638DesdePpd(
   const total = conStock.reduce((s, t) => s + (Number(t.stock) || 0), 0)
   const parts = splitIntEqual(total, amTalles.length)
   return amTalles
-    .map((talle, i) => ({
-      combinacion_id: conStock[i % conStock.length]!.combinacion_id,
-      codigo: talle,
-      orden: sortTalle638Key(talle),
-      stock: parts[i] ?? 0,
-    }))
+    .map((talle, i) => {
+      const src = conStock[i % conStock.length]!
+      return {
+        combinacion_id: src.combinacion_id,
+        codigo: talle,
+        orden: sortTalle638Key(talle),
+        stock: parts[i] ?? 0,
+        precio_web: src.precio_web ?? null,
+      }
+    })
     .filter((t) => t.stock > 0)
 }
 

@@ -5,10 +5,12 @@ import {
   productImageCandidates,
   productImageFallbackStyle,
   resolveColorCodigoImagen,
+  resolveImagenColorExcel638,
   resolveMaterialCodigoImagen,
   type ImageVariant,
   type StockImageInput,
 } from '@/lib/product-image'
+import { PROVEEDOR_CONFECCIONES_KYLY } from '@/lib/productImageProtocol'
 
 type Props = {
   item: Pick<
@@ -48,8 +50,10 @@ export function ProductImage({
   const color = resolveColorCodigoImagen(item)
 
   const excelColor =
-    String(item.color_nombre ?? '').trim() ||
-    (item.ppd_color_codigo != null ? String(item.ppd_color_codigo).trim() : '')
+    Number(item.proveedor_importacion_id) === PROVEEDOR_CONFECCIONES_KYLY
+      ? resolveImagenColorExcel638(item)
+      : String(item.color_nombre ?? '').trim() ||
+        (item.ppd_color_codigo != null ? String(item.ppd_color_codigo).trim() : '')
 
   const chain = useMemo(() => {
     if (candidatesProp?.length) return candidatesProp

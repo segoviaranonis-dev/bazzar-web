@@ -92,7 +92,43 @@ SELECT
       )
     )                                           AS id_color_f9,
     ppd_trp.ppd_color_codigo                    AS ppd_color_codigo,
-    NULL::text                                  AS imagen_url,
+    -- Ley 2.01.04.021: solo imagen PE real (ALM color/material a menudo ≠ stem).
+    -- Prohibido inventar L-R-M-C con códigos ALM — envenena el resolutor.
+    (
+      SELECT pe.imagen_url
+      FROM v_stock_pe_rimec pe
+      WHERE pe.linea_codigo::text = l.codigo_proveedor::text
+        AND pe.referencia_codigo::text = r.codigo_proveedor::text
+        AND NULLIF(btrim(pe.imagen_url::text), '') IS NOT NULL
+        AND (
+          NULLIF(btrim(pe.color_code::text), '') = NULLIF(btrim(col.codigo_proveedor::text), '')
+          OR NULLIF(btrim(pe.material_code::text), '') = NULLIF(btrim(mat.codigo_proveedor::text), '')
+          OR lower(btrim(COALESCE(pe.descp_color, ''))) = lower(btrim(COALESCE(col.nombre::text, '')))
+          OR (
+            NULLIF(btrim(col.nombre::text), '') IS NOT NULL
+            AND lower(btrim(COALESCE(pe.descp_color, '')))
+              LIKE lower(split_part(btrim(col.nombre::text), '/', 1)) || '%'
+          )
+          OR lower(btrim(COALESCE(pe.descp_material, '')))
+            = lower(btrim(COALESCE(mat.descripcion::text, '')))
+        )
+      ORDER BY
+        CASE WHEN NULLIF(btrim(pe.color_code::text), '') = NULLIF(btrim(col.codigo_proveedor::text), '')
+          THEN 0 ELSE 1 END,
+        CASE WHEN lower(btrim(COALESCE(pe.descp_color, ''))) = lower(btrim(COALESCE(col.nombre::text, '')))
+          THEN 0 ELSE 1 END,
+        CASE WHEN NULLIF(btrim(col.nombre::text), '') IS NOT NULL
+          AND lower(btrim(COALESCE(pe.descp_color, '')))
+            LIKE lower(split_part(btrim(col.nombre::text), '/', 1)) || '%'
+          THEN 0 ELSE 1 END,
+        CASE WHEN NULLIF(btrim(pe.material_code::text), '') = NULLIF(btrim(mat.codigo_proveedor::text), '')
+          THEN 0 ELSE 1 END,
+        CASE WHEN lower(btrim(COALESCE(pe.descp_material, '')))
+          = lower(btrim(COALESCE(mat.descripcion::text, '')))
+          THEN 0 ELSE 1 END,
+        pe.imagen_url NULLS LAST
+      LIMIT 1
+    )                                           AS imagen_url,
     tl.talla_etiqueta                            AS talla_codigo,
     tl.orden_visual                             AS talla_orden,
     agg.stock_web,
@@ -160,4 +196,4 @@ GRANT SELECT ON v_stock_web TO anon;
 GRANT SELECT ON v_stock_web TO authenticated;
 
 COMMENT ON VIEW v_stock_web IS
-  'Catálogo web P0 + Stock Sano ALM_WEB_01. precio_web desde lista WEB o stock_sano_deposito.';
+  'Catálogo web P0 + Stock Sano ALM_WEB_01. precio_web lista WEB/SANO. imagen_url PE→stem 654/638 (Ley 2.01.04.021).';

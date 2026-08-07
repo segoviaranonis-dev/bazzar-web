@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { normalizeColor } from '@/lib/colors'
 import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 
@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? ''
   if (!q || q.length < 2) return NextResponse.json({ results: [] })
 
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const pattern  = `%${q}%`
   const results: { tipo: string; label: string; href: string }[] = []
   const seen = new Set<string>()

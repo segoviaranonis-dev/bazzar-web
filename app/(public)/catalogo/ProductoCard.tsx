@@ -5,10 +5,21 @@ import { createPortal } from 'react-dom'
 import { useCart } from '@/lib/cart/CartContext'
 import { ProductImage } from '@/components/ProductImage'
 import { productImageUrlFromStockItem, type StockImageInput } from '@/lib/product-image'
-import { parseEtiquetaTalle638, sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
+import { parseEtiquetaTalle638 } from '@/lib/grada/sort-talla-canonico'
+import {
+  agruparTallasPorPrecio638,
+  rangoPreciosLabel,
+} from '@/lib/catalogo/agrupar-tallas-precio-638'
 
 /* ── Tipos ── */
-export interface Talla { combinacion_id: number; codigo: string; orden: number; stock: number }
+export interface Talla {
+  combinacion_id: number
+  codigo: string
+  orden: number
+  stock: number
+  /** Precio WEB por combinación — segmentación 638 */
+  precio_web?: number | null
+}
 
 export interface Variante {
   id_color_f9: number
@@ -279,12 +290,21 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
 
   const variante   = p.variantes[varIdx]
   const stockTotal = variante.tallas.reduce((s, t) => s + t.stock, 0)
-  const precio     = p.precio_web ? new Intl.NumberFormat('es-PY').format(p.precio_web) : null
   const es638 = esConfecciones638(p)
   const gradaRopa = usaGradaRopa(p)
   const unidad = unidadStock(p)
+  const gruposPrecio = gradaRopa
+    ? agruparTallasPorPrecio638(variante.tallas, p.precio_web)
+    : null
+  const precioLabel = gradaRopa
+    ? rangoPreciosLabel(gruposPrecio ?? [])
+    : p.precio_web
+      ? new Intl.NumberFormat('es-PY').format(p.precio_web)
+      : null
 
   function handleAddTalla(talla: Talla) {
+    const precioLinea =
+      talla.precio_web != null && talla.precio_web > 0 ? talla.precio_web : p.precio_web
     addItem({
       key:                    `${p.key}-${variante.id_color_f9}-${talla.codigo}`,
       combinacion_id:         talla.combinacion_id,
@@ -299,7 +319,7 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
       color_nombre:           variante.color_nombre,
       talla_codigo:           talla.codigo,
       imagen_url:             productImageUrlFromStockItem(variante.imagen_item),
-      precio_web:             p.precio_web,
+      precio_web:             precioLinea,
     })
     setFlash(talla.codigo)
     setTimeout(() => setFlash(null), 1000)
@@ -417,12 +437,15 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
 
           {/* Precio + Stock */}
           <div className="flex items-center justify-between">
-            {precio ? (
+            {precioLabel ? (
               <div>
                 <span className="text-[9px] font-semibold uppercase tracking-wide"
                       style={{ color: '#94a3b8' }}>Gs.</span>
                 {' '}
-                <span className="text-sm font-extrabold" style={{ color: ORANGE }}>{precio}</span>
+                <span className="text-sm font-extrabold" style={{ color: ORANGE }}>{precioLabel}</span>
+                {gradaRopa && (gruposPrecio?.length ?? 0) > 1 && (
+                  <span className="ml-1 text-[8px] font-semibold text-violet-600">/talles</span>
+                )}
               </div>
             ) : (
               <span className="text-xs font-semibold" style={{ color: '#94a3b8' }}>Consultar precio</span>
@@ -463,60 +486,115 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
             </div>
           )}
 
-          {/* Grada caja abierta — 638 = am_talle PPD (no 34–39 ALM) · 654 = talle zapato */}
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {variante.tallas.map(t => {
-              const activa = t.stock > 0
-              const hovered = hoveredTalla === t.codigo
-              const etiqueta = gradaRopa ? parseEtiquetaTalle638(t.codigo) : t.codigo
-              return (
-                <button
-                  key={`${t.combinacion_id}-${t.codigo}`}
-                  disabled={!activa}
-                  onClick={() => handleAddTalla(t)}
-                  onMouseEnter={() => activa && setHoveredTalla(t.codigo)}
-                  onMouseLeave={() => setHoveredTalla(null)}
-                  title={
-                    activa
-                      ? `Agregar ${etiqueta} · ${t.stock} ${unidad}`
-                      : 'Sin stock'
-                  }
-                  className="inline-flex min-w-[2rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
-                  style={{
-                    borderColor: activa ? (hovered ? ORANGE : gradaRopa ? '#bbf7d0' : '#bfdbfe') : '#f1f5f9',
-                    backgroundColor: activa
-                      ? hovered
-                        ? ORANGE
-                        : gradaRopa
-                          ? '#ecfdf5'
-                          : '#e0f2fe'
-                      : '#fafafa',
-                    color: activa ? (hovered ? 'white' : NAVY) : '#cbd5e1',
-                    cursor: activa ? 'pointer' : 'not-allowed',
-                    opacity: activa ? 1 : 0.55,
-                    transform: hovered ? 'scale(1.06)' : 'scale(1)',
-                  }}
+          {/* Grada caja abierta — 638: buckets precio×talle (paridad RIMEC) · 654: talle zapato */}
+          {gradaRopa && gruposPrecio && gruposPrecio.length > 0 ? (
+            <div className="flex flex-col gap-1.5 pt-0.5">
+              {gruposPrecio.map((grupo) => (
+                <div
+                  key={`p-${grupo.precio}`}
+                  className="rounded-md border px-1.5 py-1"
+                  style={{ borderColor: '#ddd6fe', backgroundColor: 'rgba(245,243,255,0.45)' }}
                 >
-                  <span className="font-mono text-[11px] font-bold leading-none">{etiqueta}</span>
-                  <span
-                    className="mt-0.5 font-mono text-[9px] font-semibold leading-none tabular-nums"
+                  <p className="mb-1 text-center text-[9px] font-bold tabular-nums leading-tight" style={{ color: ORANGE }}>
+                    Gs. {new Intl.NumberFormat('es-PY').format(grupo.precio)}
+                    <span className="font-normal text-slate-400"> /prenda</span>
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-1">
+                    {grupo.tallas.map((t) => {
+                      const activa = t.stock > 0
+                      const hovered = hoveredTalla === `${grupo.precio}-${t.codigo}`
+                      const etiqueta = parseEtiquetaTalle638(t.codigo)
+                      return (
+                        <button
+                          key={`${t.combinacion_id}-${t.codigo}-${grupo.precio}`}
+                          disabled={!activa}
+                          onClick={() => handleAddTalla({ ...t, precio_web: grupo.precio })}
+                          onMouseEnter={() => activa && setHoveredTalla(`${grupo.precio}-${t.codigo}`)}
+                          onMouseLeave={() => setHoveredTalla(null)}
+                          title={
+                            activa
+                              ? `Agregar T ${etiqueta} · ${t.stock} ${unidad} · Gs. ${grupo.precio.toLocaleString('es-PY')}`
+                              : 'Sin stock'
+                          }
+                          className="inline-flex min-w-[2.25rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
+                          style={{
+                            borderColor: activa ? (hovered ? ORANGE : '#c4b5fd') : '#f1f5f9',
+                            backgroundColor: activa
+                              ? hovered
+                                ? ORANGE
+                                : '#f5f3ff'
+                              : '#fafafa',
+                            color: activa ? (hovered ? 'white' : NAVY) : '#cbd5e1',
+                            cursor: activa ? 'pointer' : 'not-allowed',
+                            opacity: activa ? 1 : 0.55,
+                            transform: hovered ? 'scale(1.06)' : 'scale(1)',
+                          }}
+                        >
+                          <span className="font-mono text-[10px] font-black leading-none">
+                            T {etiqueta}
+                          </span>
+                          <span
+                            className="mt-0.5 font-mono text-[8px] font-semibold leading-none tabular-nums"
+                            style={{
+                              color:
+                                hovered && activa ? 'rgba(255,255,255,0.9)' : activa ? '#6d28d9' : '#cbd5e1',
+                            }}
+                          >
+                            {t.stock}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1 pt-0.5">
+              {variante.tallas.map((t) => {
+                const activa = t.stock > 0
+                const hovered = hoveredTalla === t.codigo
+                return (
+                  <button
+                    key={`${t.combinacion_id}-${t.codigo}`}
+                    disabled={!activa}
+                    onClick={() => handleAddTalla(t)}
+                    onMouseEnter={() => activa && setHoveredTalla(t.codigo)}
+                    onMouseLeave={() => setHoveredTalla(null)}
+                    title={activa ? `Agregar ${t.codigo} · ${t.stock} ${unidad}` : 'Sin stock'}
+                    className="inline-flex min-w-[2rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
                     style={{
-                      color:
-                        hovered && activa
-                          ? 'rgba(255,255,255,0.9)'
-                          : activa
-                            ? gradaRopa
-                              ? '#047857'
-                              : '#0369a1'
-                            : '#cbd5e1',
+                      borderColor: activa ? (hovered ? ORANGE : '#bfdbfe') : '#f1f5f9',
+                      backgroundColor: activa
+                        ? hovered
+                          ? ORANGE
+                          : '#e0f2fe'
+                        : '#fafafa',
+                      color: activa ? (hovered ? 'white' : NAVY) : '#cbd5e1',
+                      cursor: activa ? 'pointer' : 'not-allowed',
+                      opacity: activa ? 1 : 0.55,
+                      transform: hovered ? 'scale(1.06)' : 'scale(1)',
                     }}
                   >
-                    {t.stock}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
+                    <span className="font-mono text-[11px] font-bold leading-none">{t.codigo}</span>
+                    <span
+                      className="mt-0.5 font-mono text-[9px] font-semibold leading-none tabular-nums"
+                      style={{
+                        color:
+                          hovered && activa
+                            ? 'rgba(255,255,255,0.9)'
+                            : activa
+                              ? '#0369a1'
+                              : '#cbd5e1',
+                      }}
+                    >
+                      {t.stock}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
