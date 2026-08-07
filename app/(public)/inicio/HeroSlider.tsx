@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import ImagenPortada from '@/components/ImagenPortada'
 
+/**
+ * Portadas oficiales son panorámicas (~2.8:1).
+ * El hero respeta ese ratio a ANCHO COMPLETO — no un rectángulo alto que recorta logos.
+ */
 const SLIDES = [
   {
     marca: 'VIZZANO',
@@ -38,7 +42,7 @@ export default function HeroSlider() {
       window.setTimeout(() => {
         setCurrent(idx)
         setFade(true)
-      }, 280)
+      }, 220)
     },
     [current],
   )
@@ -50,7 +54,7 @@ export default function HeroSlider() {
   )
 
   useEffect(() => {
-    const t = window.setTimeout(next, 6500)
+    const t = window.setTimeout(next, 7000)
     return () => window.clearTimeout(t)
   }, [current, next])
 
@@ -58,96 +62,98 @@ export default function HeroSlider() {
 
   return (
     <section
-      className="relative w-full overflow-hidden bg-neutral-950 select-none"
-      style={{ height: 'min(78vh, 820px)', minHeight: 420 }}
+      className="relative w-full bg-neutral-950 select-none"
       aria-roledescription="carrusel"
       aria-label="Campañas de marca"
     >
+      {/* Ratio real de las portadas Storage (~6688×2362) */}
       <div
-        className="absolute inset-0 transition-opacity duration-500 ease-out"
-        style={{ opacity: fade ? 1 : 0 }}
+        className="relative w-full overflow-hidden"
+        style={{ aspectRatio: '2.83 / 1', minHeight: 220 }}
       >
-        <ImagenPortada
-          marca={slide.marca}
-          tier="lg"
-          fit="cover"
-          className="absolute inset-0 h-full w-full"
-          alt=""
-        />
-      </div>
-
-      {/* Velo inferior — deja respirar la foto arriba */}
-      <div
-        className="pointer-events-none absolute inset-0 z-[1]"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.55) 78%, rgba(0,0,0,0.78) 100%)',
-        }}
-      />
-
-      {/* Primer viewport: marca (discreta) · una línea · un CTA */}
-      <div
-        className="relative z-10 flex h-full flex-col justify-end px-6 pb-10 md:px-14 md:pb-14 lg:px-20"
-        style={{
-          opacity: fade ? 1 : 0,
-          transform: fade ? 'translateY(0)' : 'translateY(10px)',
-          transition: 'opacity 0.45s ease, transform 0.45s ease',
-        }}
-      >
-        <p className="mb-3 font-serif text-[11px] uppercase tracking-[0.35em] text-white/55">
-          bazzar · {String(current + 1).padStart(2, '0')} / {String(SLIDES.length).padStart(2, '0')}
-        </p>
-        <p className="max-w-xl font-serif text-2xl font-medium leading-snug text-white md:text-4xl md:leading-tight">
-          {slide.line}
-        </p>
-        <div className="mt-7 flex flex-wrap items-center gap-4">
-          <Link
-            href={slide.href}
-            className="inline-flex items-center bg-white px-8 py-3.5 text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-950 transition hover:bg-neutral-100"
-          >
-            Ver colección
-          </Link>
-          <Link
-            href="/catalogo"
-            className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/80 underline-offset-4 transition hover:text-white hover:underline"
-          >
-            Ir al catálogo
-          </Link>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={prev}
-        className="absolute left-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center border border-white/25 text-xl text-white/80 transition hover:border-white/60 hover:text-white md:flex"
-        aria-label="Anterior"
-      >
-        ‹
-      </button>
-      <button
-        type="button"
-        onClick={next}
-        className="absolute right-3 top-1/2 z-20 hidden h-11 w-11 -translate-y-1/2 items-center justify-center border border-white/25 text-xl text-white/80 transition hover:border-white/60 hover:text-white md:flex"
-        aria-label="Siguiente"
-      >
-        ›
-      </button>
-
-      <div className="absolute bottom-6 right-6 z-20 flex gap-2 md:right-14">
-        {SLIDES.map((s, i) => (
-          <button
-            key={s.marca}
-            type="button"
-            onClick={() => goTo(i)}
-            aria-label={s.marca}
-            aria-current={i === current ? 'true' : undefined}
-            className="h-[3px] transition-all duration-300"
-            style={{
-              width: i === current ? 28 : 10,
-              background: i === current ? '#fff' : 'rgba(255,255,255,0.35)',
-            }}
+        <div
+          className="absolute inset-0 transition-opacity duration-500"
+          style={{ opacity: fade ? 1 : 0 }}
+        >
+          <ImagenPortada
+            marca={slide.marca}
+            tier="lg"
+            fit="cover"
+            className="absolute inset-0 h-full w-full"
+            alt={`Campaña ${slide.marca}`}
           />
-        ))}
+        </div>
+
+        <div
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.12) 42%, rgba(0,0,0,0.05) 100%), linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.45) 100%)',
+          }}
+        />
+
+        <div
+          className="absolute inset-0 z-10 flex flex-col justify-end px-5 pb-6 md:px-12 md:pb-10 lg:px-16"
+          style={{
+            opacity: fade ? 1 : 0,
+            transition: 'opacity 0.4s ease',
+          }}
+        >
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.35em] text-white/50 md:text-[11px]">
+            {slide.marca}
+          </p>
+          <p className="max-w-lg font-serif text-xl font-medium leading-snug text-white md:text-3xl lg:text-4xl">
+            {slide.line}
+          </p>
+          <div className="mt-5 flex flex-wrap items-center gap-5">
+            <Link
+              href={slide.href}
+              className="inline-flex bg-white px-7 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-950 transition hover:bg-neutral-100 md:text-[11px]"
+            >
+              Ver colección
+            </Link>
+            <Link
+              href="/catalogo"
+              className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75 underline-offset-4 hover:text-white hover:underline md:text-[11px]"
+            >
+              Catálogo
+            </Link>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={prev}
+          className="absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/30 text-lg text-white/85 transition hover:border-white hover:text-white md:flex"
+          aria-label="Anterior"
+        >
+          ‹
+        </button>
+        <button
+          type="button"
+          onClick={next}
+          className="absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/30 text-lg text-white/85 transition hover:border-white hover:text-white md:flex"
+          aria-label="Siguiente"
+        >
+          ›
+        </button>
+
+        <div className="absolute bottom-5 right-5 z-20 flex gap-1.5 md:right-12">
+          {SLIDES.map((s, i) => (
+            <button
+              key={s.marca}
+              type="button"
+              onClick={() => goTo(i)}
+              aria-label={s.marca}
+              aria-current={i === current ? 'true' : undefined}
+              className="h-[2px] transition-all duration-300"
+              style={{
+                width: i === current ? 26 : 10,
+                background: i === current ? '#fff' : 'rgba(255,255,255,0.35)',
+              }}
+            />
+          ))}
+        </div>
       </div>
     </section>
   )

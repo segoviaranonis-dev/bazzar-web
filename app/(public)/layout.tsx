@@ -33,9 +33,8 @@ export default async function PublicLayout({ children }: { children: React.React
       >
         <Header data={headerData} />
 
-        <main className="mx-auto max-w-[1440px] px-4 py-6 md:px-8 md:py-8 lg:px-12">
-          {children}
-        </main>
+        {/* Sin padding: /inicio es full-bleed. El grupo (tienda) aporta margen. */}
+        <main className="min-w-0">{children}</main>
 
         <CartDrawer />
         <CookieBanner />
