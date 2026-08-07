@@ -9,20 +9,113 @@ export type PortadaTier = 'flat' | 'sm' | 'md' | 'lg'
 /** slug Storage ↔ nombre comercial catálogo */
 export const PORTADA_STEM_BY_MARCA: Record<string, string> = {
   VIZZANO: 'vizzano',
+  'BEIRA RIO': 'beira-rio',
+  BEIRA_RIO: 'beira-rio',
+  MODARE: 'modare',
   MOLECA: 'moleca',
   MOLEKINHA: 'molekinha',
   MOLEKINHO: 'molekinho',
-  MODARE: 'modare',
   ACTVITTA: 'actvitta',
-  'BEIRA RIO': 'beira-rio',
-  BEIRA_RIO: 'beira-rio',
   'BR SPORT': 'br-sport',
   BR_SPORT: 'br-sport',
+  KYLY: 'kyly',
+  MILON: 'milon',
 }
 
-/** Fallback holding si el env no llegó al bundle cliente (dev HMR / misconfig). */
-const HOLDING_SUPABASE =
-  'https://extrlcvcgypwazxipvqm.supabase.co'
+/**
+ * Orden Director 2026-08-07 — grilla inicio.
+ * 1.x mujer premium · 2.x Moleca family + Actvitta · 3.x sport/confecciones
+ * Kyly + Milon: espacio reservado (imagen pendiente).
+ */
+export type MarcaPortadaDef = {
+  code: string
+  nombre: string
+  desc: string
+  href: string
+  /** false = reserva visual; no pedir Storage hasta que llegue el archivo */
+  portadaLista: boolean
+}
+
+export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
+  [
+    {
+      code: '1.1',
+      nombre: 'VIZZANO',
+      desc: 'Elegancia italiana',
+      href: '/catalogo?marca=VIZZANO',
+      portadaLista: true,
+    },
+    {
+      code: '1.2',
+      nombre: 'BEIRA RIO',
+      desc: 'Estilo en cada paso',
+      href: '/catalogo?marca=BEIRA+RIO',
+      portadaLista: true,
+    },
+    {
+      code: '1.3',
+      nombre: 'MODARE',
+      desc: 'Sofisticación atemporal',
+      href: '/catalogo?marca=MODARE',
+      portadaLista: true,
+    },
+  ],
+  [
+    {
+      code: '2.1',
+      nombre: 'MOLECA',
+      desc: 'Moda y actitud',
+      href: '/catalogo?marca=MOLECA',
+      portadaLista: true,
+    },
+    {
+      code: '2.2',
+      nombre: 'MOLEKINHA',
+      desc: 'Mini fashionista',
+      href: '/catalogo?marca=MOLEKINHA',
+      portadaLista: true,
+    },
+    {
+      code: '2.3',
+      nombre: 'MOLEKINHO',
+      desc: 'Aventura sin límites',
+      href: '/catalogo?marca=MOLEKINHO',
+      portadaLista: true,
+    },
+    {
+      code: '2.4',
+      nombre: 'ACTVITTA',
+      desc: 'Movimiento activo',
+      href: '/catalogo?marca=ACTVITTA',
+      portadaLista: true,
+    },
+  ],
+  [
+    {
+      code: '3.1',
+      nombre: 'BR SPORT',
+      desc: 'Performance urbana',
+      href: '/catalogo?marca=BR+SPORT',
+      portadaLista: true,
+    },
+    {
+      code: '3.2',
+      nombre: 'KYLY',
+      desc: 'Confecciones · próximamente',
+      href: '/catalogo?marca=KYLY',
+      portadaLista: false,
+    },
+    {
+      code: '3.3',
+      nombre: 'MILON',
+      desc: 'Confecciones · próximamente',
+      href: '/catalogo?marca=MILON',
+      portadaLista: false,
+    },
+  ],
+]
+
+const HOLDING_SUPABASE = 'https://extrlcvcgypwazxipvqm.supabase.co'
 
 function resolveSupabaseUrl(raw: string | undefined): string | null {
   const value = (raw ?? '')
@@ -41,7 +134,6 @@ export function portadaStemFromMarca(marca: string): string | null {
   return slug || null
 }
 
-/** URL pública canónica (todas las apps deben usar esta forma). */
 export function imagenPortadaUrl(
   marcaOrStem: string,
   tier: PortadaTier = 'md',
@@ -59,7 +151,6 @@ export function imagenPortadaUrl(
   return `${base}/storage/v1/object/public/productos/portada/${tier}/${stem}.jpg`
 }
 
-/** Cadena fallback flat → lg → md → sm (mismo espíritu que producto). */
 export function imagenPortadaCandidates(
   marca: string,
   preferred: PortadaTier = 'lg',

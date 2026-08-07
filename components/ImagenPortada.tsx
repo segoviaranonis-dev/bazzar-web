@@ -7,33 +7,41 @@ type Props = {
   marca: string
   tier?: PortadaTier
   className?: string
-  /** cover = banner hero/tarjeta · contain = logo-like */
   fit?: 'cover' | 'contain'
   alt?: string
+  /** false = reserva (Kyly/Milon) · no dispara GET a Storage */
+  lista?: boolean
 }
 
-/**
- * Marco sagrado portada — overflow hidden + object-fit.
- * El contenedor debe ser absolute inset-0 (o tamaño fijo) en el padre.
- */
 export default function ImagenPortada({
   marca,
   tier = 'md',
   className = '',
   fit = 'cover',
   alt,
+  lista = true,
 }: Props) {
-  const candidates = imagenPortadaCandidates(marca, tier)
+  const candidates = lista ? imagenPortadaCandidates(marca, tier) : []
   const [idx, setIdx] = useState(0)
-  const src = candidates[idx] ?? null
+  const [agotado, setAgotado] = useState(false)
+  const src = !lista || agotado ? null : (candidates[idx] ?? null)
 
   if (!src) {
     return (
       <div
-        className={`bg-neutral-800 ${className}`.trim()}
+        className={`flex items-end bg-neutral-900 ${className}`.trim()}
         aria-hidden
-        data-portada-frame="sin-url"
-      />
+        data-portada-frame={lista ? 'sin-archivo' : 'pendiente'}
+        data-marca={marca}
+      >
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            background:
+              'radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.12), transparent 55%)',
+          }}
+        />
+      </div>
     )
   }
 
@@ -60,6 +68,7 @@ export default function ImagenPortada({
         }}
         onError={() => {
           if (idx < candidates.length - 1) setIdx((i) => i + 1)
+          else setAgotado(true)
         }}
       />
     </div>

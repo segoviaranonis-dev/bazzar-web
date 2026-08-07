@@ -8,6 +8,7 @@ import ImagenPortada from '@/components/ImagenPortada'
  * Portadas oficiales son panorámicas (~2.8:1).
  * El hero respeta ese ratio a ANCHO COMPLETO — no un rectángulo alto que recorta logos.
  */
+/** Misma prioridad que fila 1 del Director */
 const SLIDES = [
   {
     marca: 'VIZZANO',
@@ -15,19 +16,14 @@ const SLIDES = [
     href: '/catalogo?marca=VIZZANO',
   },
   {
-    marca: 'MOLECA',
-    line: 'Color y actitud',
-    href: '/catalogo?marca=MOLECA',
+    marca: 'BEIRA RIO',
+    line: 'Estilo en cada paso',
+    href: '/catalogo?marca=BEIRA+RIO',
   },
   {
     marca: 'MODARE',
     line: 'Confort sofisticado',
     href: '/catalogo?marca=MODARE',
-  },
-  {
-    marca: 'BEIRA RIO',
-    line: 'Estilo en cada paso',
-    href: '/catalogo?marca=BEIRA+RIO',
   },
 ]
 

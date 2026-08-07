@@ -1,16 +1,8 @@
 import Link from 'next/link'
 import HeroSlider from './HeroSlider'
 import ImagenPortada from '@/components/ImagenPortada'
+import { MARCAS_INICIO_FILAS } from '@/lib/imagen-portada'
 import { adminWhatsAppUrl } from '@/lib/whatsapp'
-
-const MARCAS = [
-  { nombre: 'VIZZANO', desc: 'Elegancia italiana', href: '/catalogo?marca=VIZZANO' },
-  { nombre: 'MOLECA', desc: 'Moda y actitud', href: '/catalogo?marca=MOLECA' },
-  { nombre: 'MOLEKINHA', desc: 'Mini fashionista', href: '/catalogo?marca=MOLEKINHA' },
-  { nombre: 'MOLEKINHO', desc: 'Aventura sin límites', href: '/catalogo?marca=MOLEKINHO' },
-  { nombre: 'MODARE', desc: 'Sofisticación atemporal', href: '/catalogo?marca=MODARE' },
-  { nombre: 'ACTVITTA', desc: 'Movimiento activo', href: '/catalogo?marca=ACTVITTA' },
-]
 
 const OFERTAS = [
   {
@@ -33,10 +25,15 @@ const OFERTAS = [
   },
 ]
 
+const FILA_COLS: Record<number, string> = {
+  0: 'grid-cols-1 sm:grid-cols-3',
+  1: 'grid-cols-2 sm:grid-cols-4',
+  2: 'grid-cols-1 sm:grid-cols-3',
+}
+
 export default function InicioPage() {
   return (
     <div>
-      {/* Hero: 100% del viewport · pegado al header · sin cajita */}
       <HeroSlider />
 
       <div className="mx-auto max-w-[1280px] px-4 md:px-8 lg:px-12">
@@ -56,35 +53,59 @@ export default function InicioPage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-            {MARCAS.map((m) => (
-              <Link
-                key={m.nombre}
-                href={m.href}
-                className="group relative block overflow-hidden bg-neutral-200"
-                style={{ aspectRatio: '4 / 5' }}
+          <div className="space-y-3 md:space-y-4">
+            {MARCAS_INICIO_FILAS.map((fila, fi) => (
+              <div
+                key={`fila-${fi + 1}`}
+                className={`grid gap-3 md:gap-4 ${FILA_COLS[fi] ?? 'sm:grid-cols-3'}`}
+                data-marca-fila={fi + 1}
               >
-                <ImagenPortada
-                  marca={m.nombre}
-                  tier="md"
-                  fit="cover"
-                  className="absolute inset-0 h-full w-full transition duration-700 ease-out group-hover:scale-[1.04]"
-                  alt={`Portada ${m.nombre}`}
-                />
-                <div
-                  className="absolute inset-0 z-[1]"
-                  style={{
-                    background:
-                      'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.72) 100%)',
-                  }}
-                />
-                <div className="absolute inset-x-0 bottom-0 z-10 p-4 md:p-5">
-                  <p className="font-serif text-lg font-medium tracking-wide text-white md:text-xl">
-                    {m.nombre}
-                  </p>
-                  <p className="mt-0.5 text-xs text-white/70">{m.desc}</p>
-                </div>
-              </Link>
+                {fila.map((m) => (
+                  <Link
+                    key={m.nombre}
+                    href={m.href}
+                    className="group relative block overflow-hidden bg-neutral-900"
+                    style={{ aspectRatio: '4 / 5' }}
+                    data-marca-code={m.code}
+                    aria-label={
+                      m.portadaLista
+                        ? m.nombre
+                        : `${m.nombre} · imagen de portada pendiente`
+                    }
+                  >
+                    <ImagenPortada
+                      marca={m.nombre}
+                      tier="md"
+                      fit="cover"
+                      lista={m.portadaLista}
+                      className="absolute inset-0 h-full w-full transition duration-700 ease-out group-hover:scale-[1.04]"
+                      alt={m.portadaLista ? `Portada ${m.nombre}` : ''}
+                    />
+                    <div
+                      className="absolute inset-0 z-[1]"
+                      style={{
+                        background: m.portadaLista
+                          ? 'linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.72) 100%)'
+                          : 'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.75) 100%)',
+                      }}
+                    />
+                    <div className="absolute inset-x-0 bottom-0 z-10 p-4 md:p-5">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.25em] text-white/40">
+                        {m.code}
+                      </p>
+                      <p className="font-serif text-lg font-medium tracking-wide text-white md:text-xl">
+                        {m.nombre}
+                      </p>
+                      <p className="mt-0.5 text-xs text-white/70">{m.desc}</p>
+                      {!m.portadaLista ? (
+                        <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
+                          Espacio listo · imagen pendiente
+                        </p>
+                      ) : null}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             ))}
           </div>
         </section>
