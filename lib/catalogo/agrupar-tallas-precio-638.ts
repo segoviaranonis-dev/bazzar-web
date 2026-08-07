@@ -9,7 +9,7 @@ export type TallaConPrecio = {
   codigo: string
   orden: number
   stock: number
-  precio_web: number | null
+  precio_web?: number | null
 }
 
 export type GrupoPrecioTallasBazzar = {
