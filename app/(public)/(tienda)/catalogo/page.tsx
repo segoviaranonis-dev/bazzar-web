@@ -26,7 +26,9 @@ import {
   type TipoGrupoId,
 } from '@/lib/filtros/filtro-tipo-canonico'
 
-export const revalidate = 60
+/** Catálogo: datos vivos desde v_stock_web (evita ISR con marcas obsoletas / "—"). */
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
 
 /** Columnas tipadas — select(*) con rol anon hace timeout en PostgREST (vista pesada). */
 const CATALOGO_SELECT = [
