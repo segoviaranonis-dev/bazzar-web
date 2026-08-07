@@ -43,7 +43,9 @@ export default async function PublicLayout({ children }: { children: React.React
         <footer className="mt-16 border-t border-slate-200">
           <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 py-10 md:flex-row md:items-center md:justify-between md:px-8 lg:px-12">
             <div>
-              <span className="font-serif text-xl font-bold text-slate-900">bazzar</span>
+              <Link href="/inicio" className="font-serif text-xl font-bold text-slate-900">
+                bazzar
+              </Link>
               <p className="mt-1 text-xs text-slate-400">
                 Catálogo tienda web · ALM_WEB · Paraguay
               </p>

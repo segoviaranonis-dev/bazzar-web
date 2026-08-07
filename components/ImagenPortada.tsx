@@ -14,7 +14,7 @@ type Props = {
 
 /**
  * Marco sagrado portada — overflow hidden + object-fit.
- * Misma familia que ProductImage (capa UI ley imágenes).
+ * El contenedor debe ser absolute inset-0 (o tamaño fijo) en el padre.
  */
 export default function ImagenPortada({
   marca,
@@ -28,21 +28,36 @@ export default function ImagenPortada({
   const src = candidates[idx] ?? null
 
   if (!src) {
-    return <div className={`bg-neutral-200 ${className}`.trim()} aria-hidden />
+    return (
+      <div
+        className={`bg-neutral-800 ${className}`.trim()}
+        aria-hidden
+        data-portada-frame="sin-url"
+      />
+    )
   }
 
   return (
     <div
-      className={`relative overflow-hidden ${className}`.trim()}
+      className={`overflow-hidden ${className}`.trim()}
       data-portada-frame="imagen-de-portada"
       data-marca={marca}
+      data-portada-src={src}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={alt ?? marca}
-        className="absolute inset-0 h-full w-full box-border"
-        style={{ objectFit: fit, objectPosition: 'center' }}
+        decoding="async"
+        fetchPriority={tier === 'lg' ? 'high' : 'auto'}
+        className="block h-full w-full box-border"
+        style={{
+          objectFit: fit,
+          objectPosition: 'center',
+          width: '100%',
+          height: '100%',
+          minHeight: '100%',
+        }}
         onError={() => {
           if (idx < candidates.length - 1) setIdx((i) => i + 1)
         }}

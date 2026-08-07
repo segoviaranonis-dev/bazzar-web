@@ -13,6 +13,7 @@ export interface HeaderData {
 /** Cabecera ops · hermanos siameses (sin mega-menú moda / sin banner). */
 export default function Header({ data }: { data: HeaderData }) {
   const pathname = usePathname()
+  const enInicio = pathname === '/' || pathname?.startsWith('/inicio')
   const enCatalogo = pathname?.startsWith('/catalogo')
 
   return (
@@ -20,13 +21,18 @@ export default function Header({ data }: { data: HeaderData }) {
       <div className="mx-auto flex h-14 max-w-[1440px] items-center justify-between gap-4 px-4 md:px-8 lg:px-12">
         <div className="flex min-w-0 items-center gap-6">
           <Link
-            href="/catalogo"
+            href="/inicio"
+            prefetch
             className="shrink-0 font-serif text-xl font-bold tracking-wide text-slate-900"
+            aria-label="Inicio · portada"
           >
             bazzar
           </Link>
           <nav className="hidden items-center gap-1 sm:flex" aria-label="Navegación ops">
-            <NavLink href="/catalogo" active={enCatalogo}>
+            <NavLink href="/inicio" active={enInicio} prefetch>
+              Inicio
+            </NavLink>
+            <NavLink href="/catalogo" active={enCatalogo} prefetch>
               Catálogo
             </NavLink>
             {data.showAuditoriaLocal ? (
@@ -55,16 +61,19 @@ function NavLink({
   active,
   children,
   title,
+  prefetch = true,
 }: {
   href: string
   active?: boolean
   children: React.ReactNode
   title?: string
+  prefetch?: boolean
 }) {
   return (
     <Link
       href={href}
       title={title}
+      prefetch={prefetch}
       className={`rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-[0.12em] transition ${
         active
           ? 'bg-[#1E3A5F] text-white'

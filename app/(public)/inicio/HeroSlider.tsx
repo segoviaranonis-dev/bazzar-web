@@ -65,11 +65,12 @@ export default function HeroSlider() {
         marca={slide.marca}
         tier="lg"
         fit="cover"
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-0 h-full w-full"
         alt={`Portada ${slide.marca}`}
       />
+      {/* Overlay más liviano para que se vea la foto */}
       <div className="absolute inset-0 z-[1] pointer-events-none"
-           style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%)' }} />
+           style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.22) 50%, rgba(0,0,0,0.08) 100%)' }} />
 
       {/* Contenido */}
       <div className={`relative z-10 h-full flex flex-col justify-end px-12 md:px-20 pb-12 md:pb-16

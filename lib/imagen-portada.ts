@@ -20,10 +20,16 @@ export const PORTADA_STEM_BY_MARCA: Record<string, string> = {
   BR_SPORT: 'br-sport',
 }
 
+/** Fallback holding si el env no llegó al bundle cliente (dev HMR / misconfig). */
+const HOLDING_SUPABASE =
+  'https://extrlcvcgypwazxipvqm.supabase.co'
+
 function resolveSupabaseUrl(raw: string | undefined): string | null {
-  if (!raw) return null
-  const value = raw.replace(/^NEXT_PUBLIC_SUPABASE_URL=/i, '').trim().replace(/\/$/, '')
-  return value || null
+  const value = (raw ?? '')
+    .replace(/^NEXT_PUBLIC_SUPABASE_URL=/i, '')
+    .trim()
+    .replace(/\/$/, '')
+  return value || HOLDING_SUPABASE
 }
 
 export function portadaStemFromMarca(marca: string): string | null {

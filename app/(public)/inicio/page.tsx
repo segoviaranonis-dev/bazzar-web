@@ -118,11 +118,11 @@ export default function InicioPage() {
                 marca={m.nombre}
                 tier="md"
                 fit="cover"
-                className="absolute inset-0"
+                className="absolute inset-0 h-full w-full"
                 alt={`Portada ${m.nombre}`}
               />
-              <div className="absolute inset-0"
-                   style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.75) 100%)' }} />
+              <div className="absolute inset-0 z-[1]"
+                   style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)' }} />
 
               <div className="relative z-10 p-4 flex flex-col h-full justify-end" style={{ minHeight: 140 }}>
                 <div>
