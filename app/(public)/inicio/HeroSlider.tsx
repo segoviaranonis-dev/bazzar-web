@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import ImagenPortada from '@/components/ImagenPortada'
 
 const SLIDES = [
   {
@@ -59,10 +60,16 @@ export default function HeroSlider() {
     <div className="relative w-full overflow-hidden select-none"
          style={{ aspectRatio: '21/9', minHeight: 320, background: slide.bg, transition: 'background 0.8s ease' }}>
 
-      {/* Grain texture overlay */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none"
-           style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'n\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.9\' numOctaves=\'4\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23n)\'/%3E%3C/svg%3E")',
-                    backgroundRepeat: 'repeat', backgroundSize: '200px' }} />
+      {/* Imagen de portada (Storage holding) */}
+      <ImagenPortada
+        marca={slide.marca}
+        tier="lg"
+        fit="cover"
+        className="absolute inset-0 z-0"
+        alt={`Portada ${slide.marca}`}
+      />
+      <div className="absolute inset-0 z-[1] pointer-events-none"
+           style={{ background: 'linear-gradient(90deg, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.35) 55%, rgba(0,0,0,0.15) 100%)' }} />
 
       {/* Contenido */}
       <div className={`relative z-10 h-full flex flex-col justify-end px-12 md:px-20 pb-12 md:pb-16

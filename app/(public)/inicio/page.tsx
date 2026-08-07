@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import HeroSlider from './HeroSlider'
+import ImagenPortada from '@/components/ImagenPortada'
 import { adminWhatsAppUrl } from '@/lib/whatsapp'
 
 const MARCAS = [
@@ -113,25 +114,28 @@ export default function InicioPage() {
                              hover:scale-105 hover:shadow-xl"
                   style={{ background: m.bg, minHeight: 140 }}>
 
-              {/* Glow hover */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                   style={{ background: `radial-gradient(circle at center, ${m.accent}20 0%, transparent 70%)` }} />
+              <ImagenPortada
+                marca={m.nombre}
+                tier="md"
+                fit="cover"
+                className="absolute inset-0"
+                alt={`Portada ${m.nombre}`}
+              />
+              <div className="absolute inset-0"
+                   style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.75) 100%)' }} />
 
-              <div className="relative z-10 p-4 flex flex-col h-full justify-between" style={{ minHeight: 140 }}>
-                <span className="text-2xl">{m.icon}</span>
+              <div className="relative z-10 p-4 flex flex-col h-full justify-end" style={{ minHeight: 140 }}>
                 <div>
-                  <p className="text-xs font-black tracking-widest uppercase leading-tight"
-                     style={{ color: m.accent }}>
+                  <p className="text-xs font-black tracking-widest uppercase leading-tight text-white">
                     {m.nombre}
                   </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
                     {m.desc}
                   </p>
                 </div>
               </div>
 
-              {/* Arrow on hover */}
-              <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity"
+              <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10"
                    style={{ color: m.accent, fontSize: 14, fontWeight: 700 }}>→</div>
             </Link>
           ))}
