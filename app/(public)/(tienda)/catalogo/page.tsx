@@ -7,11 +7,13 @@ import { enrichImagenUrlsFromStockItem } from '@/lib/product-image'
 import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 import { sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
 import {
+  aplicarPreciosPpdATallas638,
   esPrendasPe,
   loadPePrendasAmTalleIndex,
-  loadPpdAmTalleIndex,
+  loadPpd638Enrich,
   remapTallas638DesdePpd,
   resolveAmTallesForProducto,
+  type PpdLpnPorTalleIndex,
 } from '@/lib/catalogo/enrich-grada-638'
 import {
   buildFacetasDesdeFilas,
@@ -56,6 +58,8 @@ const CATALOGO_SELECT = [
   'precio_web',
   'stock_sano_estado',
   'stock_sano_caso',
+  'stock_sano_lpn',
+  'stock_sano_markup_pct',
   'descp_grupo_estilo',
   'grupo_estilo_id',
   'genero_id',
@@ -216,14 +220,17 @@ export default async function CatalogoPage({ searchParams }: Props) {
         .filter(Boolean),
     ),
   )
-  const [ppdIndex, pePrendasIndex] = await Promise.all([
-    loadPpdAmTalleIndex(lineas638),
+  const [ppd638, pePrendasIndex] = await Promise.all([
+    loadPpd638Enrich(lineas638),
     loadPePrendasAmTalleIndex(lineas654),
   ])
 
-  const todos = agruparProductos(rowsFiltradas, ppdIndex, pePrendasIndex).filter(
-    (p) => p.variantes.length > 0,
-  )
+  const todos = agruparProductos(
+    rowsFiltradas,
+    ppd638.amTalles,
+    ppd638.lpnPorTalle,
+    pePrendasIndex,
+  ).filter((p) => p.variantes.length > 0)
   const productos = todos
 
   const totalUnidades = productos.reduce(
@@ -296,10 +303,13 @@ export default async function CatalogoPage({ searchParams }: Props) {
 function agruparProductos(
   items: StockWebItem[],
   ppdIndex: Map<string, string[]>,
+  lpnPorTalle: PpdLpnPorTalleIndex,
   pePrendasIndex: Map<string, string[]>,
 ): ProductoAgrupado[] {
   const prodMap = new Map<string, ProductoAgrupado>()
   const varMap = new Map<string, Map<number, Variante>>()
+  /** markup % por producto (primer fila ALM) */
+  const markupByProd = new Map<string, number | null>()
 
   for (const item of items) {
     const prodKey = `${item.linea_id}-${item.referencia_id}-${item.material_id}`
@@ -309,6 +319,9 @@ function agruparProductos(
       const esPrenda654 =
         !es638 &&
         esPrendasPe(pePrendasIndex, item.linea_codigo, item.referencia_codigo)
+      const markup =
+        item.stock_sano_markup_pct != null ? Number(item.stock_sano_markup_pct) : null
+      markupByProd.set(prodKey, Number.isFinite(markup as number) ? markup : null)
       prodMap.set(prodKey, {
         key: prodKey,
         linea_id: item.linea_id,
@@ -377,16 +390,26 @@ function agruparProductos(
     p.variantes = Array.from(varMap.get(p.key)!.values())
     const es638 = Number(p.proveedor_importacion_id) === 638
     const esPrenda654 = p.unidad_stock === 'prendas' && !es638
+    const markup = markupByProd.get(p.key) ?? null
     p.variantes.forEach((v) => {
       if (es638) {
         const colorRaw = v.imagen_item.color_code ?? v.imagen_item.ppd_color_codigo
+        const colorStr = colorRaw != null ? String(colorRaw) : null
         const am = resolveAmTallesForProducto(
           ppdIndex,
           p.linea_codigo,
           p.referencia_codigo,
-          colorRaw != null ? String(colorRaw) : null,
+          colorStr,
         )
         v.tallas = remapTallas638DesdePpd(v.tallas, am)
+        v.tallas = aplicarPreciosPpdATallas638(
+          v.tallas,
+          lpnPorTalle,
+          p.linea_codigo,
+          p.referencia_codigo,
+          colorStr,
+          markup,
+        )
       } else if (esPrenda654) {
         const am = resolveAmTallesForProducto(
           pePrendasIndex,
@@ -403,6 +426,13 @@ function agruparProductos(
       }
     })
     p.variantes = p.variantes.filter((v) => v.tallas.length > 0)
+    // Cabecera: mínimo precio entre tallas (rango lo arma ProductoCard)
+    if (es638) {
+      const precios = p.variantes
+        .flatMap((v) => v.tallas.map((t) => Number(t.precio_web) || 0))
+        .filter((n) => n > 0)
+      if (precios.length) p.precio_web = Math.min(...precios)
+    }
     return p
   })
 }
