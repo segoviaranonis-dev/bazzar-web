@@ -61,8 +61,18 @@ export async function getFiltros(supabase: SupabaseClient) {
 
     const grupoEstiloObj = e.grupo_estilo_v2 as any
     const tipo1Obj = e.tipo_1 as any
-    const descp_estilo = grupoEstiloObj?.descp_grupo_estilo ?? e.descp_grupo_estilo
-    if (descp_estilo) estiloMap.get(e.linea_id)!.estilos.add(descp_estilo)
+    const descp_estilo = String(
+      grupoEstiloObj?.descp_grupo_estilo ?? e.descp_grupo_estilo ?? '',
+    ).trim()
+    const estiloUpper = descp_estilo.toUpperCase()
+    if (
+      descp_estilo &&
+      estiloUpper !== 'OTROS' &&
+      estiloUpper !== '(SIN ESTILO)' &&
+      estiloUpper !== 'SIN ESTILO'
+    ) {
+      estiloMap.get(e.linea_id)!.estilos.add(descp_estilo)
+    }
 
     const descp_tipo_1 = tipo1Obj?.descp_tipo_1 ?? e.descp_tipo_1
     if (descp_tipo_1) estiloMap.get(e.linea_id)!.tipos.add(descp_tipo_1)

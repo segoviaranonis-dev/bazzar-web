@@ -4,6 +4,7 @@
  * Canal ALM_WEB (sin CP/PE); tipología AB-CR se suma cuando haya señales en stock.
  */
 import type { StockWebItem } from '@/types/bazzar'
+import { isEstiloPlaceholder } from '@/lib/catalogo/enrich-estilo'
 
 export type FacetasCatalogo = {
   marcas: string[]
@@ -41,8 +42,9 @@ export function buildFacetasDesdeFilas(rows: StockWebItem[]): FacetasCatalogo {
   for (const r of rows) {
     const id = Number(r.grupo_estilo_id)
     const nom = String(r.descp_grupo_estilo ?? '').trim()
-    if (Number.isFinite(id) && id > 0 && nom) estiloMap.set(id, nom)
-    else if (nom) estiloMap.set(-estiloMap.size - 1, nom)
+    if (!nom || isEstiloPlaceholder(nom)) continue
+    if (Number.isFinite(id) && id > 0) estiloMap.set(id, nom)
+    else estiloMap.set(-estiloMap.size - 1, nom)
   }
   const estilos = [...estiloMap.entries()]
     .map(([id, nombre]) => ({ id, nombre: nombre.trim() }))

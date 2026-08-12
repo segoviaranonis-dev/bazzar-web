@@ -15,6 +15,7 @@ import {
   resolveAmTallesForProducto,
   type PpdLpnPorTalleIndex,
 } from '@/lib/catalogo/enrich-grada-638'
+import { enrichEstiloDesdeLineaReferencia } from '@/lib/catalogo/enrich-estilo'
 import {
   buildFacetasDesdeFilas,
   rowsForFacet,
@@ -112,7 +113,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   if (error) console.error('[catalogo]', error.message)
 
-  const allRows = ([...(data ?? [])] as unknown as StockWebItem[]).sort((a, b) => {
+  const rawRows = ([...(data ?? [])] as unknown as StockWebItem[]).sort((a, b) => {
     const m = String(a.marca ?? '').localeCompare(String(b.marca ?? ''), 'es')
     if (m) return m
     const l = String(a.linea_codigo ?? '').localeCompare(String(b.linea_codigo ?? ''), 'es', {
@@ -127,6 +128,8 @@ export default async function CatalogoPage({ searchParams }: Props) {
     if (r) return r
     return (Number(a.talla_orden) || 0) - (Number(b.talla_orden) || 0)
   })
+  // 638: vista ciega de estilo → enriquecer desde linea_referencia (faceta ESTILO)
+  const allRows = await enrichEstiloDesdeLineaReferencia(rawRows)
 
   // Dimensiones base (ramo + tipo + Mario Bros) — universo de cascada
   let rowsBase = [...allRows]
@@ -363,6 +366,9 @@ function agruparProductos(
           id_color_f9: item.id_color_f9,
           proveedor_importacion_id: item.proveedor_importacion_id,
           ppd_color_codigo: item.ppd_color_codigo,
+          // Obligatorio: sin esto el carrito regenera stem 638 por color_code (ej. 400031)
+          // y pierde la URL canónica de Storage (ej. 1000031_0001.jpg) — error 4.05.05.001
+          imagen_url: item.imagen_url,
         },
         tallas: [],
       })
