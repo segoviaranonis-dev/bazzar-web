@@ -24,6 +24,7 @@ type Props = {
     | 'id_color_f9'
     | 'proveedor_importacion_id'
     | 'ppd_color_codigo'
+    | 'imagen_url'
   >
   alt: string
   variant?: ImageVariant
@@ -114,18 +115,21 @@ export function ProductImage({
     )
   }
 
+  // Contenedor relative obligatorio: .cadena-thumb-frame es absolute inset-0
   return (
-    <div className={`cadena-thumb-frame ${className}`.trim()} style={productImageFallbackStyle()}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        key={`${activeSrc}|${idx}`}
-        src={activeSrc}
-        alt={alt}
-        className="block max-h-full max-w-full h-auto w-auto object-contain object-center bg-white/95"
-        loading={priority ? 'eager' : 'lazy'}
-        decoding="async"
-        onError={handleError}
-      />
+    <div className={`relative h-full w-full min-h-0 min-w-0 ${className}`.trim()}>
+      <div className="cadena-thumb-frame" style={productImageFallbackStyle()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          key={`${activeSrc}|${idx}`}
+          src={activeSrc}
+          alt={alt}
+          className="block max-h-full max-w-full h-auto w-auto object-contain object-center bg-white/95"
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          onError={handleError}
+        />
+      </div>
     </div>
   )
 }
