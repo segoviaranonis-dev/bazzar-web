@@ -25,7 +25,7 @@ export const PORTADA_STEM_BY_MARCA: Record<string, string> = {
 /**
  * Orden Director 2026-08-07 — grilla inicio.
  * 1.x mujer premium · 2.x Moleca family + Actvitta · 3.x sport/confecciones
- * Kyly + Milon: espacio reservado (imagen pendiente).
+ * Kyly + Milon: portadas 2026-08-11 (WeTransfer jpg → Storage).
  */
 export type MarcaPortadaDef = {
   code: string
@@ -120,19 +120,48 @@ export const MARCAS_INICIO_FILAS: MarcaPortadaDef[][] = [
     {
       code: '3.2',
       nombre: 'KYLY',
-      desc: 'Confecciones · próximamente',
+      desc: 'Confecciones infantiles',
       href: '/catalogo?marca=KYLY',
-      portadaLista: false,
+      portadaLista: true,
+      /** Banner split: logo izq · niños der → grilla 4:5 ancla a la foto */
+      objectPosition: '78% center',
     },
     {
       code: '3.3',
       nombre: 'MILON',
-      desc: 'Confecciones · próximamente',
+      desc: 'Confecciones infantiles',
       href: '/catalogo?marca=MILON',
-      portadaLista: false,
+      portadaLista: true,
+      /** Banner split: logo izq · niñas der → grilla 4:5 ancla a la foto */
+      objectPosition: '78% center',
     },
   ],
 ]
+
+/** Ancla object-position canónica por marca (inicio + mega). */
+export function objectPositionPortada(marca: string): string {
+  const key = marca.trim().toUpperCase().replace(/\+/g, ' ').replace(/\s+/g, ' ')
+  for (const fila of MARCAS_INICIO_FILAS) {
+    const hit = fila.find((m) => m.nombre === key)
+    if (hit?.objectPosition) return hit.objectPosition
+  }
+  return 'center center'
+}
+
+/**
+ * Mega vertical recorta más en X — anclas para ver niñas/niños (no logo/puff).
+ * Molekinha: niña der · Molekinho: niño centro · Kyly/Milon: foto der del split.
+ */
+export function objectPositionPortadaMega(marca: string): string {
+  const key = marca.trim().toUpperCase().replace(/\+/g, ' ').replace(/\s+/g, ' ')
+  const mega: Record<string, string> = {
+    MOLEKINHA: '94% 22%',
+    MOLEKINHO: '46% 40%',
+    KYLY: '84% 32%',
+    MILON: '84% 32%',
+  }
+  return mega[key] ?? objectPositionPortada(key)
+}
 
 const HOLDING_SUPABASE = 'https://extrlcvcgypwazxipvqm.supabase.co'
 

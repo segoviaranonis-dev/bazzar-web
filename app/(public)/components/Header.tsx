@@ -94,19 +94,13 @@ export default function Header({ data }: { data: HeaderData }) {
           />
           {generoActivo ? (
             <MegaMenuGenero
+              key={generoActivo.id}
               open
               onClose={() => setMega(null)}
               generoId={generoActivo.id}
               label={generoActivo.label}
             />
-          ) : (
-            <MegaMenuGenero
-              open={false}
-              onClose={() => setMega(null)}
-              generoId={GENERO_NAV.caballeros.id}
-              label={GENERO_NAV.caballeros.label}
-            />
-          )}
+          ) : null}
         </div>
       </header>
       <div className="h-16 shrink-0" aria-hidden />

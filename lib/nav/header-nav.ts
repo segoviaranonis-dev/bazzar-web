@@ -1,11 +1,9 @@
 /**
  * Nav header Bazzar — labels retail → params catálogo canónicos.
- * Géneros = mismo filtro GÉNERO · MULTI del catálogo (no Calzado/Confecciones).
- * (sin imports server/pg — usable en client)
+ * Orden Director: Rebajas · Damas · Caballeros · Niñas · Niños
  */
 import type { TipoGrupoId } from '@/lib/filtros/filtro-tipo-canonico'
 
-/** Links mega Rebajas → catálogo liquidación. */
 export function hrefRebajas(opts: {
   genero_id?: number | null
   marca?: string | null
@@ -21,7 +19,6 @@ export function hrefRebajas(opts: {
   return `/catalogo?${p.toString()}`
 }
 
-/** Links mega por género (Caballeros, Damas, …) → catálogo. */
 export function hrefGenero(opts: {
   genero_id: number
   marca?: string | null
@@ -36,15 +33,12 @@ export function hrefGenero(opts: {
 
 export type HeaderNavItem = {
   id: string
-  /** Texto visible (estilo Boss) */
   label: string
   href: string
   match: {
     pathPrefix?: string
     tipo_grupos?: TipoGrupoId
-    /** Filtro GÉNERO · MULTI */
     genero_id?: number
-    /** Catálogo sin filtros de tipo/género top */
     catalogoTodos?: boolean
     inicio?: boolean
   }
@@ -61,7 +55,7 @@ export const GENERO_NAV = {
   ninas: { id: 4, label: 'Niñas' },
 } as const
 
-/** Orden UI filtro: Caballeros · Damas · Niñas · Niños (ex Calzado/Confecciones) */
+/** Orden: Rebajas · Damas · Caballeros · Niñas · Niños · Promo · Catálogo */
 export const HEADER_NAV_ITEMS: readonly HeaderNavItem[] = [
   {
     id: 'rebajas',
@@ -70,16 +64,16 @@ export const HEADER_NAV_ITEMS: readonly HeaderNavItem[] = [
     match: { pathPrefix: '/catalogo', tipo_grupos: 'liquidacion' },
   },
   {
-    id: 'caballeros',
-    label: GENERO_NAV.caballeros.label,
-    href: `/catalogo?genero_id=${GENERO_NAV.caballeros.id}`,
-    match: { pathPrefix: '/catalogo', genero_id: GENERO_NAV.caballeros.id },
-  },
-  {
     id: 'damas',
     label: GENERO_NAV.damas.label,
     href: `/catalogo?genero_id=${GENERO_NAV.damas.id}`,
     match: { pathPrefix: '/catalogo', genero_id: GENERO_NAV.damas.id },
+  },
+  {
+    id: 'caballeros',
+    label: GENERO_NAV.caballeros.label,
+    href: `/catalogo?genero_id=${GENERO_NAV.caballeros.id}`,
+    match: { pathPrefix: '/catalogo', genero_id: GENERO_NAV.caballeros.id },
   },
   {
     id: 'ninas',
