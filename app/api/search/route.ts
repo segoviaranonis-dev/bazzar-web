@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     add('Línea', l, `/catalogo?linea=${encodeURIComponent(l)}`)
   }
 
-  for (const r of [...(refsRes.data ?? []), ...(refsCodRes.data ?? [])]) {
+  for (const r of refsRes.data ?? []) {
     const label =
       String(r.referencia_descripcion ?? '').trim() ||
       String(r.referencia_codigo ?? '').trim()
@@ -78,6 +78,12 @@ export async function GET(req: NextRequest) {
         label,
         `/catalogo?q=${encodeURIComponent(String(r.referencia_codigo ?? label).trim())}`,
       )
+    }
+  }
+  for (const r of refsCodRes.data ?? []) {
+    const cod = String(r.referencia_codigo ?? '').trim()
+    if (cod) {
+      add('Producto', cod, `/catalogo?q=${encodeURIComponent(cod)}`)
     }
   }
 
