@@ -1,12 +1,14 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { isValidPedidoToken } from '@/lib/security/pedido-token'
 import { adminWhatsAppUrl } from '@/lib/whatsapp'
+import { dispararEdBDomicilio, domicilioListoParaEdB } from '@/lib/orden/puente-pago-entrega'
 import Link from 'next/link'
 import { ItemImagen } from './ItemImagen'
+import { PuentePagoEntrega } from './PuentePagoEntrega'
 
 interface Props {
   params: { id: string }
-  searchParams: { t?: string }
+  searchParams: { t?: string; pago?: string }
 }
 
 export default async function ConfirmacionPage({ params, searchParams }: Props) {
@@ -44,6 +46,24 @@ export default async function ConfirmacionPage({ params, searchParams }: Props) 
     )
   }
 
+  // EDB: disparo servidor (no UI cliente). Si faltaba handoff y hay teléfono+mapa → sync.
+  const tel =
+    (pedido.entrega_telefono_snapshot as string | null) ||
+    (pedido.cliente_telefono as string | null)
+  const lat = pedido.entrega_lat as number | null
+  const lng = pedido.entrega_lng as number | null
+  if (
+    pedido.entrega_estado !== 'HANDOFF_DELIVERY' &&
+    domicilioListoParaEdB({ telefono: tel, lat, lng })
+  ) {
+    await dispararEdBDomicilio(supabase, {
+      pedidoId: Number(pedido.id),
+      telefono: tel,
+      lat,
+      lng,
+    })
+  }
+
   const fmtGs = (n: number) => new Intl.NumberFormat('es-PY').format(n)
   const fmtDate = (d: string) =>
     new Date(d).toLocaleString('es-PY', {
@@ -65,7 +85,10 @@ export default async function ConfirmacionPage({ params, searchParams }: Props) 
           ¡Pedido registrado!
         </h1>
         <p className="text-slate-500 mt-2 text-sm">
-          Te contactaremos al <span className="font-semibold text-slate-700">{pedido.cliente_telefono}</span> para coordinar la entrega
+          Pedido en Bóveda Oro WEB · entrega a domicilio en curso (EDB)
+        </p>
+        <p className="text-slate-400 mt-1 text-xs">
+          Contacto: <span className="font-semibold text-slate-600">{pedido.cliente_telefono}</span>
         </p>
       </div>
 
@@ -163,21 +186,13 @@ export default async function ConfirmacionPage({ params, searchParams }: Props) 
         </div>
       )}
 
-      <div className="mt-6 bg-orange-50 border border-orange-100 rounded-xl px-5 py-4">
-        <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-orange-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="text-sm font-semibold text-orange-700">¿Qué sigue?</p>
-            <p className="text-xs text-orange-600 mt-0.5 leading-relaxed">
-              Nuestro equipo revisará tu pedido y te contactará por WhatsApp en las próximas horas
-              para coordinar el método de pago y la entrega.
-            </p>
-          </div>
-        </div>
-      </div>
+      <PuentePagoEntrega
+        pedidoId={Number(pedido.id)}
+        token={String(token)}
+        total={Number(pedido.total) || 0}
+        pagoEstado={pedido.pago_estado ?? null}
+        autoIniciarPago={searchParams.pago === 'auto' || searchParams.pago === '1'}
+      />
 
       <div className="flex flex-col sm:flex-row gap-3 mt-6">
         <Link

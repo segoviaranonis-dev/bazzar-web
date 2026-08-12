@@ -6,6 +6,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useRouter } from 'next/navigation'
 import { useCart } from '@/lib/cart/CartContext'
+import { ProductImage } from '@/components/ProductImage'
+import { MapaEntregaModal } from '@/components/entrega/MapaEntregaModal'
+import type { PuntoEntrega } from '@/lib/maps/types'
+import {
+  guardarEntregaCache,
+  guardarPuntoEntrega,
+  leerEntregaCache,
+} from '@/lib/maps/entrega-cache'
 import { crearPedido, buscarClientePorCedula } from '@/app/actions/checkout'
 
 /* ── Validación ── */
@@ -23,24 +31,26 @@ type FormData = z.infer<typeof schema>
 /* ── helpers ── */
 const fmtGs = (n: number) => new Intl.NumberFormat('es-PY').format(n)
 
-/* ── Ref de línea · referencia ── */
-function RefTag({ linea, ref: refCod }: { linea: string; ref: string }) {
+/* ── Línea · referencia (NO usar prop `ref` — reservada React) ── */
+function RefTag({ linea, referencia }: { linea: string; referencia: string }) {
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-bold">
       <span style={{ color: '#1E3A5F' }}>{linea}</span>
       <span className="text-slate-300">·</span>
-      <span style={{ color: '#F97316' }}>{refCod}</span>
+      <span style={{ color: '#F97316' }}>{referencia}</span>
     </span>
   )
 }
 
 export default function CheckoutPage() {
-  const { items, total, count, clear } = useCart()
+  const { items, total, count, hydrated, clear } = useCart()
   const router  = useRouter()
   const [isPending, startTransition] = useTransition()
   const [serverError, setServerError] = useState<string | null>(null)
   const [cedulaBuscando, setCedulaBuscando] = useState(false)
   const [clienteEncontrado, setClienteEncontrado] = useState(false)
+  const [mapaOpen, setMapaOpen] = useState(false)
+  const [punto, setPunto] = useState<PuntoEntrega | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const {
@@ -49,6 +59,29 @@ export default function CheckoutPage() {
   } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   const cedula = watch('cedula')
+  const direccionWatch = watch('direccion')
+  const nombreWatch = watch('nombre')
+  const telefonoWatch = watch('telefono')
+
+  /* ── Memoria navegador: último punto + datos Delivery ── */
+  useEffect(() => {
+    if (!hydrated) return
+    const cache = leerEntregaCache()
+    if (!cache) return
+    if (cache.punto && !punto) {
+      setPunto(cache.punto)
+      if (cache.punto.direccion) {
+        setValue('direccion', cache.punto.direccion, { shouldValidate: true })
+      }
+    }
+    if (cache.cedula && !cedula) setValue('cedula', cache.cedula)
+    if (cache.nombre && !nombreWatch) setValue('nombre', cache.nombre)
+    if (cache.telefono && !telefonoWatch) setValue('telefono', cache.telefono)
+    if (cache.direccion_texto && !direccionWatch && !cache.punto) {
+      setValue('direccion', cache.direccion_texto)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- solo al hidratar
+  }, [hydrated])
 
   /* ── Autocomplete por cédula ── */
   useEffect(() => {
@@ -60,11 +93,18 @@ export default function CheckoutPage() {
     debounceRef.current = setTimeout(async () => {
       setCedulaBuscando(true)
       try {
-        const cliente = await buscarClientePorCedula(cedula.replace(/\D/g, ''))
+        const digits = cedula.replace(/\D/g, '')
+        const cliente = await buscarClientePorCedula(digits)
         if (cliente) {
           setValue('nombre',   cliente.nombre)
           setValue('apellido', cliente.apellido ?? '')
           setClienteEncontrado(true)
+          guardarEntregaCache({
+            cedula: digits,
+            nombre: cliente.nombre,
+          })
+        } else {
+          guardarEntregaCache({ cedula: digits })
         }
       } finally {
         setCedulaBuscando(false)
@@ -75,14 +115,45 @@ export default function CheckoutPage() {
   async function onSubmit(datos: FormData) {
     setServerError(null)
     startTransition(async () => {
-      const resultado = await crearPedido(datos, items)
+      const resultado = await crearPedido(
+        {
+          ...datos,
+          entrega_lat: punto?.lat ?? null,
+          entrega_lng: punto?.lng ?? null,
+          entrega_label: punto?.label ?? null,
+          departamento: punto?.departamento ?? null,
+          ciudad: punto?.ciudad ?? null,
+          distrito: punto?.distrito ?? null,
+        },
+        items,
+      )
       if (resultado.ok && resultado.pedido_id && resultado.token_acceso) {
+        if (punto) guardarPuntoEntrega(punto, { cedula: datos.cedula.replace(/\D/g, '') })
+        guardarEntregaCache({
+          cedula: datos.cedula.replace(/\D/g, ''),
+          nombre: datos.nombre,
+          telefono: datos.telefono,
+          direccion_texto: datos.direccion,
+          punto: punto ?? leerEntregaCache()?.punto ?? null,
+        })
         clear()
-        router.push(`/pedido/${resultado.pedido_id}?t=${encodeURIComponent(resultado.token_acceso)}`)
+        // Confirmar pedido → pedido + auto-inicio pasarela Bancard (PCI redirect)
+        router.push(
+          `/pedido/${resultado.pedido_id}?t=${encodeURIComponent(resultado.token_acceso)}&pago=auto`,
+        )
       } else {
         setServerError(resultado.error ?? 'Error desconocido')
       }
     })
+  }
+
+  /* ── Esperar hidratación (evita «vacío» falso al navegar desde el drawer) ── */
+  if (!hydrated) {
+    return (
+      <div className="max-w-lg mx-auto py-24 text-center">
+        <p className="text-sm text-slate-400">Cargando pedido…</p>
+      </div>
+    )
   }
 
   /* ── Carrito vacío ── */
@@ -115,7 +186,7 @@ export default function CheckoutPage() {
           Confirmar pedido
         </h1>
         <p className="text-slate-400 text-sm mt-1">
-          Completá tus datos · te contactamos para coordinar la entrega
+          Completá tus datos · entrega a domicilio (EDB se dispara solo)
         </p>
       </div>
 
@@ -234,11 +305,58 @@ export default function CheckoutPage() {
               <input {...register('direccion')} className="input" placeholder="Calle, número, barrio, ciudad" />
             </Field>
 
+            <button
+              type="button"
+              onClick={() => setMapaOpen(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-sky-200 bg-sky-50 py-3 text-sm font-bold text-sky-800 hover:bg-sky-100 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+              </svg>
+              Abrir mapa · marcar punto de referencia
+            </button>
+            {punto ? (
+              <div className="rounded-xl border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                <p className="font-bold">Punto en mapa listo</p>
+                <p className="mt-0.5 truncate">{punto.label || punto.direccion}</p>
+                <p className="text-green-600 mt-0.5 font-mono">
+                  {punto.lat.toFixed(5)}, {punto.lng.toFixed(5)}
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400">
+                Delivery Bazzar coordina desde este mapa. El navegador recuerda tu punto y datos
+                en este dispositivo para reconocerte la próxima vez.
+              </p>
+            )}
+
             <Field label="Notas para la entrega" error={errors.notas?.message}>
               <textarea {...register('notas')} className="input resize-none" rows={2}
                 placeholder="Horario preferido, referencias..." />
             </Field>
           </div>
+
+          <MapaEntregaModal
+            open={mapaOpen}
+            initial={
+              punto ??
+              (direccionWatch
+                ? {
+                    lat: -25.28646,
+                    lng: -57.647,
+                    direccion: direccionWatch,
+                    label: direccionWatch,
+                  }
+                : null)
+            }
+            onClose={() => setMapaOpen(false)}
+            onConfirm={(p) => {
+              setPunto(p)
+              setValue('direccion', p.direccion, { shouldValidate: true })
+              setMapaOpen(false)
+            }}
+          />
 
           {/* ─ PAGO ─ */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5"
@@ -298,12 +416,32 @@ export default function CheckoutPage() {
             <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
               {items.map(item => (
                 <div key={item.key} className="flex gap-3 items-start">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={item.imagen_url} alt={item.referencia_codigo}
-                    onError={e => (e.currentTarget.style.opacity = '0')}
-                    className="w-12 h-12 object-contain bg-slate-50 rounded-lg border border-slate-100 shrink-0" />
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                    <ProductImage
+                      item={{
+                        linea_codigo: item.linea_codigo,
+                        referencia_codigo: item.referencia_codigo,
+                        material_code: item.material_code,
+                        color_code: item.color_code,
+                        color_nombre: item.color_nombre,
+                        ppd_color_codigo: item.ppd_color_codigo,
+                        proveedor_importacion_id: item.proveedor_importacion_id,
+                        imagen_url: item.imagen_url,
+                      }}
+                      candidates={
+                        item.imagen_candidates?.length
+                          ? item.imagen_candidates
+                          : item.imagen_url
+                            ? [item.imagen_url]
+                            : undefined
+                      }
+                      alt={item.referencia_codigo}
+                      variant="thumb"
+                      className="h-full w-full"
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <RefTag linea={item.linea_codigo} ref={item.referencia_codigo} />
+                    <RefTag linea={item.linea_codigo} referencia={item.referencia_codigo} />
                     <p className="text-xs font-semibold truncate mt-0.5" style={{ color: '#1E3A5F' }}>
                       {item.referencia_descripcion || item.referencia_codigo}
                     </p>

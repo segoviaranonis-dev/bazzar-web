@@ -5,6 +5,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { checkRateLimit, pruneRateLimitStore } from '@/lib/security/rate-limit'
 import { generatePedidoToken } from '@/lib/security/pedido-token'
 import { origenWeb } from '@/lib/bazzar-origen'
+import {
+  buildSnapshotTransaccion,
+  dispararEdBDomicilio,
+  sellarPedidoBobedaOroWeb,
+  stemsNiifDesdeUrl,
+} from '@/lib/orden/puente-pago-entrega'
 
 const CEDULA_RE  = /^[0-9]{5,15}$/
 const EMAIL_RE   = /^[^\s@]{1,64}@[^\s@]{1,255}$/
@@ -71,6 +77,13 @@ export interface DatosCheckout {
   telefono:  string
   direccion: string
   notas?:    string
+  /** Punto mapa · Delivery Bazzar (CHUSAR 2.5.1.28) */
+  entrega_lat?: number | null
+  entrega_lng?: number | null
+  entrega_label?: string | null
+  departamento?: string | null
+  ciudad?: string | null
+  distrito?: string | null
 }
 
 /** Solo datos no sensibles para autocomplete en checkout */
@@ -270,8 +283,15 @@ export async function crearPedido(
     .single()
 
   if (errPedido || !pedido) {
-    console.error('[checkout] pedido_web:', errPedido?.message)
-    return { ok: false, error: 'Error al registrar el pedido. Intentá nuevamente.' }
+    console.error('[checkout] pedido_web:', errPedido?.message, errPedido)
+    const detalle =
+      process.env.NODE_ENV === 'development' && errPedido?.message
+        ? ` (${errPedido.message})`
+        : ''
+    return {
+      ok: false,
+      error: `Error al registrar el pedido. Intentá nuevamente.${detalle}`,
+    }
   }
 
   const sinStock: string[] = []
@@ -320,6 +340,70 @@ export async function crearPedido(
     console.error('[checkout] detalle:', errDetalle.message)
     await abortPedido(supabase, pedido.id)
     return { ok: false, error: 'Error al guardar artículos. Intentá nuevamente.' }
+  }
+
+  // Bóveda Oro WEB — capturar transacción + punto mapa (Delivery)
+  const snapshot = buildSnapshotTransaccion({
+    pedidoId: pedido.id,
+    total,
+    cliente: {
+      id: cliente.id,
+      nombre: `${datos.nombre} ${datos.apellido ?? ''}`.trim(),
+      email: datos.email?.trim() || null,
+      telefono: datos.telefono?.trim() || null,
+      direccion: datos.direccion?.trim() || null,
+      cedula: datos.cedula.trim(),
+    },
+    lineas: itemsResueltos.map((item) => {
+      const imagen_niif = stemsNiifDesdeUrl(
+        item.imagen_url,
+        item.linea_codigo,
+        item.referencia_codigo,
+      )
+      return {
+        combinacion_id: item.combinacion_id,
+        linea_codigo: item.linea_codigo,
+        referencia_codigo: item.referencia_codigo,
+        marca: item.marca,
+        material_desc: item.material_descripcion || null,
+        color_nombre: item.color_nombre || null,
+        talla_codigo: item.talla_codigo || null,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio_servidor,
+        imagen_url: item.imagen_url || null,
+        imagen_niif,
+      }
+    }),
+    entrega: {
+      lat: datos.entrega_lat ?? null,
+      lng: datos.entrega_lng ?? null,
+      label: datos.entrega_label ?? null,
+      departamento: datos.departamento ?? null,
+      ciudad: datos.ciudad ?? null,
+      distrito: datos.distrito ?? null,
+    },
+  })
+  await sellarPedidoBobedaOroWeb(supabase, {
+    pedidoId: pedido.id,
+    total,
+    direccion: datos.direccion?.trim() || null,
+    telefono: datos.telefono?.trim() || null,
+    snapshot,
+    lat: datos.entrega_lat,
+    lng: datos.entrega_lng,
+  })
+
+  // Domicilio único: teléfono + mapa → EDB automático (sin botón coordinar)
+  const edb = await dispararEdBDomicilio(supabase, {
+    pedidoId: pedido.id,
+    telefono: datos.telefono?.trim() || null,
+    lat: datos.entrega_lat,
+    lng: datos.entrega_lng,
+  })
+  if (!edb.ok) {
+    console.warn('[checkout] EDB no disparado:', edb.error)
+  } else if (!edb.synced) {
+    console.warn('[checkout] handoff OK · sync EDB:', edb.error)
   }
 
   return { ok: true, pedido_id: pedido.id, token_acceso: tokenAcceso }

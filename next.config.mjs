@@ -16,12 +16,14 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
-  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+  // geolocation=(self) — mapa entrega checkout (CHUSAR 2.5.1.28)
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
   {
     key: 'Content-Security-Policy',
     value: [
       "default-src 'self'",
-      `img-src 'self' https://${SUPABASE_HOST} data: blob:`,
+      // OSM tiles mapa entrega + data: pin SVG
+      `img-src 'self' https://${SUPABASE_HOST} https://*.tile.openstreetmap.org https://tile.openstreetmap.org data: blob:`,
       `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
       "font-src 'self' data:",
       "object-src 'none'",

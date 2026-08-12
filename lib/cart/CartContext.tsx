@@ -17,7 +17,14 @@ export interface CartItem {
   material_descripcion: string
   color_nombre: string
   talla_codigo: string
+  /** Primera URL (legacy). Preferir cadena NIIF. */
   imagen_url: string
+  /** Cascada NIIF (paridad ProductImage catálogo) — error 4.05.05.001 */
+  imagen_candidates?: string[]
+  color_code?: string | number | null
+  material_code?: string | number | null
+  ppd_color_codigo?: string | number | null
+  proveedor_importacion_id?: number | null
   precio_web: number | null
   cantidad: number
 }
@@ -26,6 +33,8 @@ interface CartContextValue {
   items: CartItem[]
   total: number
   count: number
+  /** false hasta leer localStorage — evita pantalla «vacío» falsa en /checkout */
+  hydrated: boolean
   open: boolean
   setOpen: (v: boolean) => void
   addItem: (item: Omit<CartItem, 'cantidad'>) => void
@@ -39,20 +48,24 @@ const STORAGE_KEY = 'bazzar_cart_v1'
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
+  const [hydrated, setHydrated] = useState(false)
   const [open, setOpen] = useState(false)
 
-  // Cargar desde localStorage al montar
+  // Cargar desde localStorage al montar — NUNCA persistir [] antes de hidratar
+  // (Strict Mode / navegación a /checkout borraba el pedido — prep Bancard)
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (raw) setItems(JSON.parse(raw))
     } catch {}
+    setHydrated(true)
   }, [])
 
-  // Persistir cada cambio
+  // Persistir solo después de hidratar
   useEffect(() => {
+    if (!hydrated) return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-  }, [items])
+  }, [items, hydrated])
 
   const addItem = useCallback((item: Omit<CartItem, 'cantidad'>) => {
     setItems(prev => {
@@ -89,7 +102,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const count = items.reduce((s, i) => s + i.cantidad, 0)
 
   return (
-    <CartContext.Provider value={{ items, total, count, open, setOpen, addItem, removeItem, updateQty, clear }}>
+    <CartContext.Provider
+      value={{ items, total, count, hydrated, open, setOpen, addItem, removeItem, updateQty, clear }}
+    >
       {children}
     </CartContext.Provider>
   )

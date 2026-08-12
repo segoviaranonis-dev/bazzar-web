@@ -2,8 +2,10 @@
 
 **Comercio:** Bazzar  
 **Sitio:** https://www.bazzar.com.py  
-**Contacto técnico:** _(completar)_  
-**RUC / razón social:** _(completar)_
+**Contacto técnico holding:** Héctor Segovia · Director de proyectos · Área informática RIMEC/Bazzar  
+**Ejecutiva Bancard:** Laura Vera (WhatsApp) · ⏳ aguardando respuesta 2026-08-11  
+**RUC / razón social:** _(completar cuando Laura indique checklist)_  
+**Moria:** `.claude/2_modulos/2.5_bazzar_web/CHUSAR_BANCARD_CONTACTO_LAURA_STANDBY_FOTO_20260811.md` (**2.5.1.32**)
 
 ---
 
@@ -74,8 +76,9 @@ Route handler (fase 2): `app/api/payments/bancard/callback/route.ts`
 Registrar fecha de contacto y número de caso:
 
 | Fecha | Canal | Referencia | Responsable |
-|-------|-------|------------|-------------|
-| _pendiente_ | | | |
+|-------|-------|-------------|-------------|
+| 2026-08-11 | WhatsApp · Laura Vera | Intro + pedido checklist VPOS/e-commerce · **aguardando respuesta** | Héctor Segovia |
+| _siguiente_ | | N° caso / ticket cuando Laura responda | |
 
 ---
 
