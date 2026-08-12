@@ -10,6 +10,7 @@ import {
   type RamoTipoBazzar,
   type TipoGrupoId,
 } from '@/lib/filtros/filtro-tipo-canonico'
+import { CatalogoSearchField } from '@/components/CatalogoSearchField'
 
 interface Props {
   marcas: string[]
@@ -244,26 +245,10 @@ export function FiltrosCatalogo({
             </div>
           </div>
 
-          <label className="block space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-              Buscar
-            </span>
-            <input
-              type="search"
-              defaultValue={qActual}
-              key={qActual}
-              placeholder="L-R-M-C · línea · marca…"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  push({ q: (e.target as HTMLInputElement).value })
-                }
-              }}
-              onBlur={(e) => {
-                if (e.target.value !== qActual) push({ q: e.target.value })
-              }}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#1E3A5F] focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20"
-            />
-          </label>
+          <CatalogoSearchField
+            variant="sidebar"
+            onApplyQ={(q) => push({ q })}
+          />
 
           <AcordeonMulti
             title="Marca · MULTI"
@@ -339,17 +324,21 @@ export function FiltrosCatalogo({
             onClear={() => push({ grupo_estilo: '', clearDesde: 'estilo' })}
             defaultOpen
           >
-            <ChipList
-              items={estilos.map((e) => ({ id: e.nombre, label: cap(e.nombre) }))}
-              selected={estiloActual ? [estiloActual] : []}
-              onToggle={(id) =>
-                push({
-                  grupo_estilo: estiloActual === id ? '' : id,
-                  clearDesde: 'estilo',
-                })
-              }
-              tone="orange"
-            />
+            {estilos.length === 0 ? (
+              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin estilo en stock)</p>
+            ) : (
+              <ChipList
+                items={estilos.map((e) => ({ id: e.nombre, label: cap(e.nombre) }))}
+                selected={estiloActual ? [estiloActual] : []}
+                onToggle={(id) =>
+                  push({
+                    grupo_estilo: estiloActual === id ? '' : id,
+                    clearDesde: 'estilo',
+                  })
+                }
+                tone="orange"
+              />
+            )}
           </AcordeonMulti>
 
           <AcordeonMulti
@@ -541,7 +530,7 @@ function ChipList({
 }) {
   const onBg = tone === 'navy' ? AZUL : '#F97316'
   return (
-    <ul className="max-h-44 space-y-0.5 overflow-y-auto" role="group">
+    <ul className="space-y-0.5" role="group">
       {items.map((item) => {
         const on = selected.includes(item.id)
         return (

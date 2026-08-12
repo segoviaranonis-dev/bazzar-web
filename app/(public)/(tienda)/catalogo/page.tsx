@@ -251,7 +251,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   return (
     <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <aside className="w-full shrink-0 lg:sticky lg:top-16 lg:w-auto lg:max-w-md">
+      <aside className="w-full shrink-0 overflow-visible lg:sticky lg:top-20 lg:w-auto lg:max-w-md">
         <Suspense>
           <FiltrosCatalogo
             marcas={facetas.marcas}

@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
+import { ProductImage } from '@/components/ProductImage'
 import { useCart } from './CartContext'
 
 const NAVY   = '#1E3A5F'
@@ -76,13 +77,30 @@ export function CartDrawer() {
               <div key={item.key}
                 className="flex gap-3 bg-white rounded-xl p-3 border border-slate-100"
                 style={{ boxShadow: '0 1px 4px rgba(30,58,95,0.06)' }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={item.imagen_url}
-                  alt={item.referencia_codigo}
-                  onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = '0' }}
-                  className="w-16 h-16 object-contain bg-slate-50 rounded-lg border border-slate-100 shrink-0"
-                />
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-slate-100 bg-slate-50">
+                  <ProductImage
+                    item={{
+                      linea_codigo: item.linea_codigo,
+                      referencia_codigo: item.referencia_codigo,
+                      material_code: item.material_code,
+                      color_code: item.color_code,
+                      color_nombre: item.color_nombre,
+                      ppd_color_codigo: item.ppd_color_codigo,
+                      proveedor_importacion_id: item.proveedor_importacion_id,
+                      imagen_url: item.imagen_url,
+                    }}
+                    candidates={
+                      item.imagen_candidates?.length
+                        ? item.imagen_candidates
+                        : item.imagen_url
+                          ? [item.imagen_url]
+                          : undefined
+                    }
+                    alt={`${item.linea_codigo}-${item.referencia_codigo}`}
+                    variant="thumb"
+                    className="h-full w-full"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-[10px] font-bold uppercase tracking-wider"
                      style={{ color: ORANGE }}>{item.marca}</p>
@@ -172,26 +190,29 @@ export function CartDrawer() {
   )
 }
 
+/** Pedido — icono bolsa (inspiración retail moda); badge si hay ítems. */
 export function CartButton() {
   const { count, setOpen } = useCart()
 
   return (
     <button
+      type="button"
       onClick={() => setOpen(true)}
-      className="relative flex items-center gap-2 px-3 py-2 rounded-xl
-                 border border-gray-200 bg-white hover:bg-gray-50 text-gray-800 transition-colors"
-      aria-label="Ver pedido"
+      className="relative p-2 text-neutral-800 transition hover:text-neutral-950"
+      aria-label={count > 0 ? `Ver pedido (${count})` : 'Ver pedido'}
     >
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+      <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+        />
       </svg>
-      <span className="hidden sm:inline text-sm font-medium">Pedido</span>
       {count > 0 && (
-        <span className="flex items-center justify-center
-                         text-white text-[10px] font-extrabold
-                         min-w-[18px] h-[18px] px-1 rounded-full"
-              style={{ backgroundColor: ORANGE }}>
+        <span
+          className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-bold text-white"
+          style={{ backgroundColor: ORANGE }}
+        >
           {count > 99 ? '99+' : count}
         </span>
       )}
