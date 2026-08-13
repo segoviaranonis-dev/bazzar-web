@@ -1,19 +1,18 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   parseTipoGruposParam,
   sanitizeTipoGruposParaRamo,
-  tipoGrupoOpcionesVisibles,
-  toggleTipoGrupo,
   type RamoTipoBazzar,
   type TipoGrupoId,
 } from '@/lib/filtros/filtro-tipo-canonico'
 import { CatalogoSearchField } from '@/components/CatalogoSearchField'
 
 interface Props {
-  marcas: string[]
+  marcasCalzado: string[]
+  marcasConfecciones: string[]
   generos: { id: number; nombre: string }[]
   estilos: { id: number; nombre: string }[]
   lineas: string[]
@@ -25,27 +24,32 @@ interface Props {
 }
 
 const AZUL = '#1E3A5F'
+const NARANJA = '#F97316'
 
 /**
- * Sidebar Dimensiones + Molécula — protocolo hermanos siameses 2.2.1.44 / 2.2.1.42.
- * Par depósito Report `/bazzar-web/deposito-web` · canal ALM_WEB.
- * Cascada: dimensión limpia molécula; Estilo→Línea→Material→Color.
+ * Sidebar retail-friendly (cliente final).
+ *
+ * Mapa de filtros (URL):
+ * | Acción                         | Params                                      |
+ * |--------------------------------|---------------------------------------------|
+ * | Buscar                         | q                                           |
+ * | Abrir Calzados / Confecciones  | ramo_tipo=654/638 (+ limpia molécula)       |
+ * | Marca bajo ramo                | ramo_tipo + marca                           |
+ * | Estilo (pila)                  | grupo_estilo · sin ramo = todos; con ramo = cascada |
+ * | Afinar búsqueda                | oculto (fuera de alcance actual)                    |
+ *
+ * Cascada: ramo (654≠638) → estilos solo del proveedor activo (2.2.1.42).
  */
 export function FiltrosCatalogo({
-  marcas,
-  generos,
+  marcasCalzado,
+  marcasConfecciones,
   estilos,
-  lineas,
-  materiales,
-  colores,
   totalModelos,
   totalUnidades,
   unidadLabel,
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [bloqueDimOpen, setBloqueDimOpen] = useState(true)
-  const [bloqueMolOpen, setBloqueMolOpen] = useState(true)
 
   const marcaActual = searchParams.get('marca') ?? ''
   const generoActual = searchParams.get('genero_id') ?? ''
@@ -62,6 +66,14 @@ export function FiltrosCatalogo({
     ramoActual || undefined,
   )
 
+  const [openCalzado, setOpenCalzado] = useState(
+    () => ramoActual !== 'CONFECCIONES' || !!marcaActual,
+  )
+  const [openConfecciones, setOpenConfecciones] = useState(
+    () => ramoActual === 'CONFECCIONES',
+  )
+  const [openEstilos, setOpenEstilos] = useState(true)
+
   const push = useCallback(
     (opts: {
       marca?: string
@@ -73,7 +85,6 @@ export function FiltrosCatalogo({
       q?: string
       ramo_tipo?: RamoTipoBazzar
       tipo_grupos?: TipoGrupoId[]
-      /** Limpiar molécula al cambiar dimensión (2.2.1.42). */
       clearMolecula?: boolean
       clearDesde?: 'estilo' | 'linea' | 'material'
     }) => {
@@ -132,6 +143,61 @@ export function FiltrosCatalogo({
     ],
   )
 
+  const activarRamo = (ramo: RamoTipoBazzar) => {
+    if (ramo === 'CALZADO') {
+      setOpenCalzado(true)
+      setOpenConfecciones(false)
+    } else if (ramo === 'CONFECCIONES') {
+      setOpenConfecciones(true)
+      setOpenCalzado(false)
+    }
+    if (ramoActual === ramo) return
+    push({
+      ramo_tipo: ramo,
+      marca: '',
+      genero_id: '',
+      clearMolecula: true,
+      tipo_grupos: [],
+    })
+  }
+
+  const toggleRamo = (ramo: 'CALZADO' | 'CONFECCIONES') => {
+    const isOpen = ramo === 'CALZADO' ? openCalzado : openConfecciones
+    const setOpen = ramo === 'CALZADO' ? setOpenCalzado : setOpenConfecciones
+    // Abierto pero sin ramo activo → primer clic enciende cascada (no cierra)
+    if (isOpen && ramoActual !== ramo) {
+      activarRamo(ramo)
+      return
+    }
+    if (isOpen) {
+      setOpen(false)
+      return
+    }
+    activarRamo(ramo)
+  }
+
+  const seleccionarMarca = (ramo: RamoTipoBazzar, marca: string) => {
+    const misma = ramoActual === ramo && marcaActual === marca
+    if (misma) {
+      push({ marca: '', ramo_tipo: ramo, clearMolecula: true, tipo_grupos: [] })
+      return
+    }
+    push({
+      marca,
+      ramo_tipo: ramo,
+      clearMolecula: true,
+      tipo_grupos: [],
+      genero_id: '',
+    })
+    if (ramo === 'CALZADO') {
+      setOpenCalzado(true)
+      setOpenConfecciones(false)
+    } else {
+      setOpenConfecciones(true)
+      setOpenCalzado(false)
+    }
+  }
+
   const dirty = !!(
     marcaActual ||
     generoActual ||
@@ -143,415 +209,223 @@ export function FiltrosCatalogo({
     ramoActual ||
     tipoActual.length
   )
-  const tipoOpts = tipoGrupoOpcionesVisibles(ramoActual || undefined)
 
-  const badgeDim = useMemo(() => {
-    let n = 0
-    if (ramoActual) n++
-    if (tipoActual.length) n += tipoActual.length
-    if (marcaActual) n++
-    if (generoActual) n++
-    if (qActual) n++
-    return n
-  }, [ramoActual, tipoActual, marcaActual, generoActual, qActual])
+  const estilosPila = useMemo(
+    () =>
+      [...estilos].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }),
+      ),
+    [estilos],
+  )
 
-  const badgeMol = useMemo(() => {
-    let n = 0
-    if (estiloActual) n++
-    if (lineaActual) n++
-    if (materialActual) n++
-    if (colorActual) n++
-    return n
-  }, [estiloActual, lineaActual, materialActual, colorActual])
+  const titulo = estiloActual
+    ? cap(estiloActual)
+    : marcaActual
+      ? cap(marcaActual)
+      : ramoActual === 'CONFECCIONES'
+        ? 'Confecciones'
+        : ramoActual === 'CALZADO'
+          ? 'Calzados'
+          : 'Catálogo'
 
   return (
-    <div className="flex w-full flex-col gap-3" aria-label="Filtros catálogo · dimensiones + molécula">
-      <div className="mb-1">
-        <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: AZUL }}>
-          {estiloActual
-            ? cap(estiloActual)
-            : marcaActual
-              ? cap(marcaActual)
-              : ramoActual === 'CONFECCIONES'
-                ? 'Confecciones'
-                : ramoActual === 'CALZADO'
-                  ? 'Calzado'
-                  : 'Catálogo'}
+    <div className="flex w-full flex-col gap-4" aria-label="Filtros del catálogo">
+      <div>
+        <h1 className="font-serif text-2xl font-bold tracking-tight" style={{ color: AZUL }}>
+          {titulo}
         </h1>
         <p className="mt-1 text-xs text-slate-500">
           <span className="font-semibold text-orange-500">
             {totalModelos.toLocaleString('es-PY')} modelos
           </span>
           {' · '}
-          {totalUnidades.toLocaleString('es-PY')} {unidadLabel} · caja abierta
+          {totalUnidades.toLocaleString('es-PY')} {unidadLabel} · por talle
         </p>
+        {dirty ? (
+          <button
+            type="button"
+            onClick={() => router.push('/catalogo')}
+            className="mt-2 text-[11px] font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
+          >
+            Limpiar filtros
+          </button>
+        ) : null}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch lg:flex-col">
-        <BloqueColapsable
-          title="Dimensiones"
-          railLabel="Dimensiones"
-          badge={badgeDim}
-          open={bloqueDimOpen}
-          onToggle={() => setBloqueDimOpen((v) => !v)}
+      <CatalogoSearchField variant="sidebar" onApplyQ={(q) => push({ q })} />
+
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <RamoAcordeon
+          title="Calzados"
+          open={openCalzado}
+          onToggle={() => toggleRamo('CALZADO')}
+          active={ramoActual === 'CALZADO'}
         >
-          <div className="flex items-start justify-between gap-2">
-            <p className="text-[11px] text-slate-500">Multi-selección · canal ALM_WEB</p>
-            {dirty ? (
-              <button
-                type="button"
-                onClick={() => router.push('/catalogo')}
-                className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[10px] font-bold text-red-700 hover:bg-red-50"
+          {marcasCalzado.length === 0 ? (
+            <p className="py-2 text-[11px] text-slate-400">Sin marcas en calzado</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {marcasCalzado.map((m) => (
+                <li key={m}>
+                  <MarcaItem
+                    label={m}
+                    selected={ramoActual === 'CALZADO' && marcaActual === m}
+                    onClick={() => seleccionarMarca('CALZADO', m)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </RamoAcordeon>
+
+        <RamoAcordeon
+          title="Confecciones"
+          open={openConfecciones}
+          onToggle={() => toggleRamo('CONFECCIONES')}
+          active={ramoActual === 'CONFECCIONES'}
+          borderTop
+        >
+          {marcasConfecciones.length === 0 ? (
+            <p className="py-2 text-[11px] text-slate-400">Sin marcas en confecciones</p>
+          ) : (
+            <ul className="flex flex-col gap-1">
+              {marcasConfecciones.map((m) => (
+                <li key={m}>
+                  <MarcaItem
+                    label={m}
+                    selected={ramoActual === 'CONFECCIONES' && marcaActual === m}
+                    onClick={() => seleccionarMarca('CONFECCIONES', m)}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </RamoAcordeon>
+      </div>
+
+      {/* Estilos — pila vertical · cascada por ramo (654 / 638) */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <button
+          type="button"
+          onClick={() => setOpenEstilos((v) => !v)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          aria-expanded={openEstilos}
+        >
+          <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: AZUL }}>
+            Estilos
+            {estiloActual ? (
+              <span
+                className="ml-2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold normal-case tracking-normal"
+                style={{ backgroundColor: '#FFEDD5', color: '#9A3412' }}
               >
-                Reset
-              </button>
+                1
+              </span>
             ) : null}
+          </span>
+          <span className="text-slate-400">{openEstilos ? '▴' : '▾'}</span>
+        </button>
+        {openEstilos ? (
+          <div className="border-t border-slate-100 px-2 pb-3 pt-1">
+            {estilosPila.length === 0 ? (
+              <p className="px-2 py-2 text-[11px] text-slate-400">Sin estilos con stock</p>
+            ) : (
+              <ul className="flex flex-col">
+                {estilosPila.map((e) => {
+                  const on = estiloActual.toLowerCase() === e.nombre.toLowerCase()
+                  return (
+                    <li key={`${e.id}-${e.nombre}`}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          push({
+                            grupo_estilo: on ? '' : e.nombre,
+                            clearDesde: 'estilo',
+                          })
+                        }
+                        className={`w-full rounded-lg px-3 py-2 text-left text-[13px] capitalize transition ${
+                          on
+                            ? 'border border-slate-300 bg-white font-semibold text-slate-900 shadow-sm'
+                            : 'border border-transparent text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        {cap(e.nombre)}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
           </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
-              Categoría
-            </span>
-            <div className="flex flex-wrap gap-1">
-              {(
-                [
-                  { id: '' as RamoTipoBazzar, label: 'Todos' },
-                  { id: 'CALZADO' as const, label: 'Calzado' },
-                  { id: 'CONFECCIONES' as const, label: 'Confecciones' },
-                ] as const
-              ).map((opt) => {
-                const on = ramoActual === opt.id
-                return (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() =>
-                      push({
-                        ramo_tipo: on && opt.id ? '' : opt.id,
-                        tipo_grupos: [],
-                        clearMolecula: true,
-                      })
-                    }
-                    className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition ${
-                      on
-                        ? 'border-[#1E3A5F] bg-[#1E3A5F] text-white'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <CatalogoSearchField
-            variant="sidebar"
-            onApplyQ={(q) => push({ q })}
-          />
-
-          <AcordeonMulti
-            title="Marca · MULTI"
-            count={marcaActual ? 1 : 0}
-            onClear={() => push({ marca: '', clearMolecula: true })}
-          >
-            <ChipList
-              items={marcas.map((m) => ({ id: m, label: m }))}
-              selected={marcaActual ? [marcaActual] : []}
-              onToggle={(id) =>
-                push({ marca: marcaActual === id ? '' : id, clearMolecula: true })
-              }
-            />
-          </AcordeonMulti>
-
-          <AcordeonMulti
-            title="Género · MULTI"
-            count={generoActual ? 1 : 0}
-            onClear={() => push({ genero_id: '', clearMolecula: true })}
-          >
-            {generos.length === 0 ? (
-              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
-            ) : (
-              <ChipList
-                items={generos.map((g) => ({ id: String(g.id), label: cap(g.nombre) }))}
-                selected={generoActual ? [generoActual] : []}
-                onToggle={(id) =>
-                  push({
-                    genero_id: generoActual === id ? '' : id,
-                    clearMolecula: true,
-                  })
-                }
-              />
-            )}
-          </AcordeonMulti>
-
-          {tipoOpts.length > 0 ? (
-            <AcordeonMulti
-              title="Tipo · MULTI"
-              count={tipoActual.length}
-              onClear={() => push({ tipo_grupos: [], clearMolecula: true })}
-              defaultOpen
-            >
-              <ChipList
-                items={tipoOpts.map((o) => ({ id: o.id, label: o.label }))}
-                selected={tipoActual}
-                onToggle={(id) =>
-                  push({
-                    tipo_grupos: toggleTipoGrupo(tipoActual, id as TipoGrupoId),
-                    clearMolecula: true,
-                  })
-                }
-                tone="orange"
-              />
-            </AcordeonMulti>
-          ) : null}
-        </BloqueColapsable>
-
-        <BloqueColapsable
-          title="Molécula"
-          railLabel="Estilo · Línea · Mat · Color"
-          badge={badgeMol}
-          open={bloqueMolOpen}
-          onToggle={() => setBloqueMolOpen((v) => !v)}
-        >
-          <p className="text-[10px] text-slate-500">
-            Cascada: Estilo → Línea → Material → Color · facetas = stock vivo
-          </p>
-
-          <AcordeonMulti
-            title="Estilo · MULTI"
-            count={estiloActual ? 1 : 0}
-            onClear={() => push({ grupo_estilo: '', clearDesde: 'estilo' })}
-            defaultOpen
-          >
-            {estilos.length === 0 ? (
-              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin estilo en stock)</p>
-            ) : (
-              <ChipList
-                items={estilos.map((e) => ({ id: e.nombre, label: cap(e.nombre) }))}
-                selected={estiloActual ? [estiloActual] : []}
-                onToggle={(id) =>
-                  push({
-                    grupo_estilo: estiloActual === id ? '' : id,
-                    clearDesde: 'estilo',
-                  })
-                }
-                tone="orange"
-              />
-            )}
-          </AcordeonMulti>
-
-          <AcordeonMulti
-            title="Línea · MULTI"
-            count={lineaActual ? 1 : 0}
-            onClear={() => push({ linea: '', clearDesde: 'linea' })}
-          >
-            {lineas.length === 0 ? (
-              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
-            ) : (
-              <ChipList
-                items={lineas.slice(0, 80).map((l) => ({ id: l, label: l }))}
-                selected={lineaActual ? [lineaActual] : []}
-                onToggle={(id) =>
-                  push({
-                    linea: lineaActual === id ? '' : id,
-                    clearDesde: 'linea',
-                  })
-                }
-              />
-            )}
-          </AcordeonMulti>
-
-          <AcordeonMulti
-            title="Material · MULTI"
-            count={materialActual ? 1 : 0}
-            onClear={() => push({ material: '', clearDesde: 'material' })}
-          >
-            {materiales.length === 0 ? (
-              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
-            ) : (
-              <ChipList
-                items={materiales.slice(0, 60).map((m) => ({ id: m, label: cap(m) }))}
-                selected={materialActual ? [materialActual] : []}
-                onToggle={(id) =>
-                  push({
-                    material: materialActual === id ? '' : id,
-                    clearDesde: 'material',
-                  })
-                }
-              />
-            )}
-          </AcordeonMulti>
-
-          <AcordeonMulti
-            title="Color · MULTI"
-            count={colorActual ? 1 : 0}
-            onClear={() => push({ colores: '' })}
-          >
-            {colores.length === 0 ? (
-              <p className="px-1 py-2 text-[11px] text-slate-400">Sin opciones (sin stock)</p>
-            ) : (
-              <ChipList
-                items={colores.slice(0, 40).map((c) => ({
-                  id: c.toLowerCase(),
-                  label: cap(c),
-                }))}
-                selected={colorActual ? [colorActual.toLowerCase()] : []}
-                onToggle={(id) =>
-                  push({ colores: colorActual.toLowerCase() === id ? '' : id })
-                }
-              />
-            )}
-          </AcordeonMulti>
-        </BloqueColapsable>
+        ) : null}
       </div>
     </div>
   )
 }
 
-function BloqueColapsable({
+function RamoAcordeon({
   title,
-  badge,
   open,
   onToggle,
+  active,
+  borderTop,
   children,
-  railLabel,
 }: {
   title: string
-  badge?: number
   open: boolean
   onToggle: () => void
-  children: React.ReactNode
-  railLabel: string
+  active?: boolean
+  borderTop?: boolean
+  children: ReactNode
 }) {
-  if (!open) {
-    return (
+  return (
+    <div className={borderTop ? 'border-t border-slate-100' : undefined}>
       <button
         type="button"
         onClick={onToggle}
-        title={`Mostrar ${title}`}
-        className="flex h-full min-h-[10rem] w-9 shrink-0 flex-col items-center gap-2 rounded-2xl border border-slate-200 bg-white py-3 shadow-sm transition hover:border-[#1E3A5F]/40 hover:bg-slate-50"
-        aria-expanded={false}
+        className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+        aria-expanded={open}
       >
-        <span style={{ color: AZUL }} aria-hidden>
-          ▸
-        </span>
-        {badge && badge > 0 ? (
-          <span className="rounded-full bg-[#1E3A5F] px-1.5 py-0.5 text-[9px] font-black text-white">
-            {badge}
-          </span>
-        ) : null}
         <span
-          className="mt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500"
-          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          className={`text-[13px] font-bold uppercase tracking-[0.08em] ${
+            active ? '' : 'opacity-90'
+          }`}
         >
-          {railLabel}
+          <span style={{ color: AZUL }}>{title}</span>
+          <span style={{ color: NARANJA }}> - Marcas</span>
         </span>
+        <span className="text-xs text-slate-400">{open ? '▴' : '▾'}</span>
       </button>
-    )
-  }
-
-  return (
-    <div className="flex w-full min-w-0 flex-col rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50/80 shadow-sm lg:w-60">
-      <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: AZUL }}>
-          {title}
-        </p>
-        <button
-          type="button"
-          onClick={onToggle}
-          className="rounded-md px-1.5 py-1 text-sm text-slate-500 hover:bg-slate-100"
-          aria-expanded
-          title="Ocultar"
-        >
-          ◂
-        </button>
-      </div>
-      <div className="flex flex-col gap-3 p-3">{children}</div>
+      {open ? <div className="px-4 pb-4">{children}</div> : null}
     </div>
   )
 }
 
-function AcordeonMulti({
-  title,
-  count,
-  onClear,
-  children,
-  defaultOpen = false,
-}: {
-  title: string
-  count: number
-  onClear: () => void
-  children: React.ReactNode
-  defaultOpen?: boolean
-}) {
-  return (
-    <details open={defaultOpen} className="group rounded-lg border border-slate-200/90 bg-white">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-2.5 py-2 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-600 [&::-webkit-details-marker]:hidden">
-        <span className="flex items-center gap-1.5">
-          <span className="text-[#1E3A5F] transition group-open:rotate-90" aria-hidden>
-            ▸
-          </span>
-          {title}
-          {count > 0 ? (
-            <span className="rounded-full bg-[#1E3A5F] px-1.5 py-0.5 text-[9px] font-black text-white">
-              {count}
-            </span>
-          ) : null}
-        </span>
-        {count > 0 ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault()
-              onClear()
-            }}
-            className="text-[9px] font-bold text-red-600 hover:underline"
-          >
-            Limpiar
-          </button>
-        ) : null}
-      </summary>
-      <div className="border-t border-slate-100 p-2">{children}</div>
-    </details>
-  )
-}
-
-function ChipList({
-  items,
+function MarcaItem({
+  label,
   selected,
-  onToggle,
-  tone = 'navy',
+  onClick,
 }: {
-  items: { id: string; label: string }[]
-  selected: string[]
-  onToggle: (id: string) => void
-  tone?: 'navy' | 'orange'
+  label: string
+  selected: boolean
+  onClick: () => void
 }) {
-  const onBg = tone === 'navy' ? AZUL : '#F97316'
   return (
-    <ul className="space-y-0.5" role="group">
-      {items.map((item) => {
-        const on = selected.includes(item.id)
-        return (
-          <li key={item.id}>
-            <button
-              type="button"
-              onClick={() => onToggle(item.id)}
-              className={`flex w-full items-center rounded-md px-2 py-1.5 text-left text-xs transition ${
-                on ? 'font-semibold text-white' : 'text-slate-700 hover:bg-slate-50'
-              }`}
-              style={on ? { backgroundColor: onBg } : undefined}
-            >
-              <span className="min-w-0 flex-1 truncate">{item.label}</span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full rounded-lg px-3 py-2 text-left text-[13px] uppercase tracking-wide transition ${
+        selected
+          ? 'border border-slate-300 bg-white font-semibold text-slate-900 shadow-sm'
+          : 'border border-transparent text-slate-700 hover:bg-slate-50'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
 
-function cap(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
+function cap(s: string): string {
+  const t = s.trim()
+  if (!t) return t
+  return t.charAt(0).toUpperCase() + t.slice(1).toLowerCase()
 }

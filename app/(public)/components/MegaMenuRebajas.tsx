@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { hrefRebajas } from '@/lib/nav/header-nav'
 import type { RebajasMegaFacet } from '@/lib/nav/rebajas-mega-types'
+import { fetchRebajasMega, peekRebajasMega } from '@/lib/nav/mega-nav-cache'
 
 type Props = {
   open: boolean
@@ -23,31 +24,42 @@ const empty: RebajasMegaFacet = {
   },
 }
 
+function facetFrom(json: RebajasMegaFacet): RebajasMegaFacet {
+  return {
+    generos: json.generos ?? [],
+    marcas: json.marcas ?? [],
+    estilos: json.estilos ?? [],
+    portada: json.portada ?? empty.portada,
+  }
+}
+
 export default function MegaMenuRebajas({ open, onClose }: Props) {
   const [generoId, setGeneroId] = useState<number | null>(null)
-  const [data, setData] = useState<RebajasMegaFacet>(empty)
-  const [loading, setLoading] = useState(false)
+  const [data, setData] = useState<RebajasMegaFacet>(() => {
+    const hit = peekRebajasMega()
+    return hit ? facetFrom(hit) : empty
+  })
+  const [loading, setLoading] = useState(() => !peekRebajasMega())
   const [imgIdx, setImgIdx] = useState(0)
 
   const load = useCallback(async (gid: number | null) => {
-    setLoading(true)
-    try {
-      const q = gid ? `?genero_id=${gid}` : ''
-      const res = await fetch(`/api/nav/rebajas${q}`)
-      const json = (await res.json()) as RebajasMegaFacet & { ok?: boolean }
-      if (json?.ok === false) return
-      setData({
-        generos: json.generos ?? [],
-        marcas: json.marcas ?? [],
-        estilos: json.estilos ?? [],
-        portada: json.portada ?? empty.portada,
-      })
-      setImgIdx(0)
-    } catch {
-      /* silent */
-    } finally {
-      setLoading(false)
+    if (gid == null || gid <= 0) {
+      const hit = peekRebajasMega()
+      if (hit) {
+        setData(facetFrom(hit))
+        setLoading(false)
+      } else {
+        setLoading(true)
+      }
+    } else {
+      setLoading(true)
     }
+    const json = await fetchRebajasMega(gid)
+    if (json) {
+      setData(facetFrom(json))
+      setImgIdx(0)
+    }
+    setLoading(false)
   }, [])
 
   useEffect(() => {

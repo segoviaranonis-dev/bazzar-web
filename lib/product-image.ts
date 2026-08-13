@@ -215,6 +215,7 @@ export function productImageCandidates(
   const C = normCodigo(color)
   if (!L || !R) return []
 
+  // Paridad RIMEC Web productImageCandidates — un solo L-R-M-C (+ L-R)
   const urls: string[] = []
   const stem4 = joinStem([L, R, M, C])
   if (stem4.split('-').length >= 4) {
@@ -227,6 +228,10 @@ export function productImageCandidates(
   return urls
 }
 
+/**
+ * Paridad RIMEC Web `enrichImagenUrls` + `productImageCandidatesForUi` (thumb):
+ * imagenNombre/flat primero → md/lg → molécula (sin inventar materiales hermanos).
+ */
 export function enrichImagenUrlsFromStockItem(item: StockImageInput): ImagenUrls {
   const linea = normCodigo(item.linea_codigo)
   const referencia = normCodigo(item.referencia_codigo)
@@ -244,25 +249,32 @@ export function enrichImagenUrlsFromStockItem(item: StockImageInput): ImagenUrls
   }
 
   const { absoluteUrl, basename } = coerceImagenNombreField(item.imagen_url)
-  const thumbMol = productImageCandidates(linea, referencia, material, color, 'thumb', ctx)
-  const heroMol = productImageCandidates(linea, referencia, material, color, 'hero', ctx)
+  const stemFromNombre = basename
+    ? basename.replace(/\.(jpe?g|png|webp)$/i, '')
+    : null
 
   const thumb: string[] = []
   const hero: string[] = []
+
+  // 1) Flat / URL canónica de BD (igual RIMEC imagenNombre)
   if (absoluteUrl) {
     pushUnique(thumb, absoluteUrl)
     pushUnique(hero, absoluteUrl)
   }
-  if (basename) {
-    for (const u of stemCandidates(basename.replace(/\.(jpe?g|png|webp)$/i, ''), 'thumb')) {
-      pushUnique(thumb, u)
-    }
-    for (const u of stemCandidates(basename.replace(/\.(jpe?g|png|webp)$/i, ''), 'hero')) {
-      pushUnique(hero, u)
-    }
+  if (stemFromNombre) {
+    pushUnique(thumb, publicStorageObjectUrl(PRODUCT_IMAGE_BUCKET, `${stemFromNombre}.jpg`))
+    pushUnique(thumb, publicStorageObjectUrl(PRODUCT_IMAGE_BUCKET, `md/${stemFromNombre}.jpg`))
+    pushUnique(thumb, publicStorageObjectUrl(PRODUCT_IMAGE_BUCKET, `lg/${stemFromNombre}.jpg`))
+    for (const u of stemCandidates(stemFromNombre, 'hero')) pushUnique(hero, u)
   }
-  for (const u of thumbMol) pushUnique(thumb, u)
-  for (const u of heroMol) pushUnique(hero, u)
+
+  // 2) Molécula L-R-M-C (mismo stem que RIMEC)
+  for (const u of productImageCandidates(linea, referencia, material, color, 'thumb', ctx)) {
+    if (!/\/productos\/(sm|thumbs)\//i.test(u)) pushUnique(thumb, u)
+  }
+  for (const u of productImageCandidates(linea, referencia, material, color, 'hero', ctx)) {
+    pushUnique(hero, u)
+  }
 
   return {
     imagen_url_thumb: thumb[0] ?? null,

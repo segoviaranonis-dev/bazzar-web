@@ -8,6 +8,7 @@ import {
   imagenPortadaCandidates,
   objectPositionPortadaMega,
 } from '@/lib/imagen-portada'
+import { fetchGeneroMega, peekGeneroMega } from '@/lib/nav/mega-nav-cache'
 
 type Props = {
   open: boolean
@@ -41,27 +42,29 @@ export default function MegaMenuGenero({
   generoId = GENERO_NAV.damas.id,
   label = GENERO_NAV.damas.label,
 }: Props) {
-  const [data, setData] = useState(() => empty(generoId, label))
-  const [loading, setLoading] = useState(false)
-  const [marcaActiva, setMarcaActiva] = useState<string | null>(null)
+  const [data, setData] = useState(() => {
+    const hit = peekGeneroMega(generoId)
+    return hit
+      ? {
+          genero_id: hit.genero_id ?? generoId,
+          genero_label: hit.genero_label ?? label,
+          marcas: hit.marcas ?? [],
+          estilos: hit.estilos ?? [],
+          estilosPorMarca: hit.estilosPorMarca ?? {},
+          portada: hit.portada ?? empty(generoId, label).portada,
+        }
+      : empty(generoId, label)
+  })
+  const [loading, setLoading] = useState(() => !peekGeneroMega(generoId))
+  const [marcaActiva, setMarcaActiva] = useState<string | null>(() => {
+    const hit = peekGeneroMega(generoId)
+    return hit?.marcas?.[0] ?? null
+  })
   const [slideIdx, setSlideIdx] = useState(0)
   const [candIdx, setCandIdx] = useState(0)
 
-  useEffect(() => {
-    setData(empty(generoId, label))
-    setMarcaActiva(null)
-    setSlideIdx(0)
-    setCandIdx(0)
-  }, [generoId, label])
-
-  const load = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(`/api/nav/genero?genero_id=${generoId}`, {
-        cache: 'no-store',
-      })
-      const json = (await res.json()) as GeneroMegaFacet & { ok?: boolean }
-      if (!res.ok || json?.ok === false) return
+  const applyFacet = useCallback(
+    (json: GeneroMegaFacet) => {
       const marcas = json.marcas ?? []
       setData({
         genero_id: json.genero_id ?? generoId,
@@ -71,15 +74,34 @@ export default function MegaMenuGenero({
         estilosPorMarca: json.estilosPorMarca ?? {},
         portada: json.portada ?? empty(generoId, label).portada,
       })
-      setMarcaActiva(marcas[0] ?? null)
+      setMarcaActiva((prev) =>
+        prev && marcas.includes(prev) ? prev : (marcas[0] ?? null),
+      )
       setSlideIdx(0)
       setCandIdx(0)
-    } catch {
-      /* silent */
-    } finally {
+    },
+    [generoId, label],
+  )
+
+  useEffect(() => {
+    const hit = peekGeneroMega(generoId)
+    if (hit) {
+      applyFacet(hit)
       setLoading(false)
+    } else {
+      setData(empty(generoId, label))
+      setMarcaActiva(null)
+      setSlideIdx(0)
+      setCandIdx(0)
     }
-  }, [generoId, label])
+  }, [generoId, label, applyFacet])
+
+  const load = useCallback(async () => {
+    if (!peekGeneroMega(generoId)) setLoading(true)
+    const json = await fetchGeneroMega(generoId)
+    if (json) applyFacet(json)
+    setLoading(false)
+  }, [generoId, applyFacet])
 
   useEffect(() => {
     if (!open) return

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useRef } from 'react'
+import { Suspense, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { CartButton } from '@/lib/cart/CartDrawer'
@@ -10,6 +10,7 @@ import {
   HEADER_NAV_ITEMS,
   isHeaderNavActive,
 } from '@/lib/nav/header-nav'
+import { prefetchMegaNavBackground } from '@/lib/nav/mega-nav-cache'
 import MegaMenuRebajas from './MegaMenuRebajas'
 import MegaMenuGenero from './MegaMenuGenero'
 
@@ -34,6 +35,10 @@ const GENERO_MEGA_IDS = new Set(['caballeros', 'damas', 'ninas', 'ninos'])
 export default function Header({ data }: { data: HeaderData }) {
   const [mega, setMega] = useState<MegaKey>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    prefetchMegaNavBackground()
+  }, [])
 
   const openMega = (key: MegaKey) => {
     if (closeTimer.current) clearTimeout(closeTimer.current)

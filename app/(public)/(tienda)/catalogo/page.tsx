@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { StockWebItem } from '@/types/bazzar'
 import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
 import { FiltrosCatalogo } from './FiltrosCatalogo'
+import { CatalogoShell } from './CatalogoShell'
 import { enrichImagenUrlsFromStockItem } from '@/lib/product-image'
 import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 import { sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
@@ -87,6 +88,42 @@ function parseRamo(raw: string | undefined): RamoTipoBazzar {
   return ''
 }
 
+/** Orden retail Calzados (mock Director) · resto alfabético. */
+const MARCA_PREF_CALZADO = [
+  'BEIRA RIO',
+  'VIZZANO',
+  'MODARE',
+  'MOLECA',
+  'MOLEKINHA',
+  'MOLEKINHO',
+  'ACTVITTA',
+  'BR SPORT',
+]
+
+/** Orden retail Confecciones. */
+const MARCA_PREF_CONFECCIONES = ['KYLY', 'MILON']
+
+function sortMarcasRetail(marcas: string[], pref: string[]): string[] {
+  const norm = (m: string) => m.trim().toUpperCase().replace(/\s+/g, ' ')
+  const by = new Map(marcas.map((m) => [norm(m), m]))
+  const head = pref.map((p) => by.get(p)).filter((m): m is string => !!m)
+  const headSet = new Set(head.map(norm))
+  const rest = marcas
+    .filter((m) => !headSet.has(norm(m)))
+    .sort((a, b) => a.localeCompare(b, 'es'))
+  return [...head, ...rest]
+}
+
+function marcasPorProveedor(rows: StockWebItem[], proveedorId: number): string[] {
+  const set = new Set<string>()
+  for (const r of rows) {
+    if (Number(r.proveedor_importacion_id) !== proveedorId) continue
+    const m = String(r.marca ?? '').trim()
+    if (m) set.add(m)
+  }
+  return [...set]
+}
+
 export default async function CatalogoPage({ searchParams }: Props) {
   const { marca: marcaFiltro, grupo_estilo: estiloFiltro, colores: coloresFiltroRaw } =
     searchParams
@@ -113,19 +150,22 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   if (error) console.error('[catalogo]', error.message)
 
+  // Grilla menor→mayor L+R+M+C (654 y 638) — no por marca
   const rawRows = ([...(data ?? [])] as unknown as StockWebItem[]).sort((a, b) => {
-    const m = String(a.marca ?? '').localeCompare(String(b.marca ?? ''), 'es')
-    if (m) return m
-    const l = String(a.linea_codigo ?? '').localeCompare(String(b.linea_codigo ?? ''), 'es', {
-      numeric: true,
-    })
-    if (l) return l
-    const r = String(a.referencia_codigo ?? '').localeCompare(
-      String(b.referencia_codigo ?? ''),
-      'es',
-      { numeric: true },
+    let c = cmpCodigoProveedor(a.linea_codigo, b.linea_codigo)
+    if (c) return c
+    c = cmpCodigoProveedor(a.referencia_codigo, b.referencia_codigo)
+    if (c) return c
+    c = cmpCodigoProveedor(
+      a.material_code ?? a.id_material_f9,
+      b.material_code ?? b.id_material_f9,
     )
-    if (r) return r
+    if (c) return c
+    c = cmpCodigoProveedor(
+      a.color_code ?? a.ppd_color_codigo ?? a.id_color_f9,
+      b.color_code ?? b.ppd_color_codigo ?? b.id_color_f9,
+    )
+    if (c) return c
     return (Number(a.talla_orden) || 0) - (Number(b.talla_orden) || 0)
   })
   // 638: vista ciega de estilo → enriquecer desde linea_referencia (faceta ESTILO)
@@ -196,7 +236,6 @@ export default async function CatalogoPage({ searchParams }: Props) {
 
   // Facetas leave-one-out (replace, no universo) — 2.2.1.42
   const facetas = {
-    marcas: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'marca', filtroMol)).marcas,
     generos: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'genero', filtroMol)).generos,
     estilos: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'estilo', filtroMol)).estilos,
     lineas: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'linea', filtroMol)).lineas,
@@ -204,6 +243,16 @@ export default async function CatalogoPage({ searchParams }: Props) {
       .materiales,
     colores: buildFacetasDesdeFilas(rowsForFacet(rowsBase, 'color', filtroMol)).colores,
   }
+
+  // Árbol Calzados/Confecciones: marcas por proveedor desde stock vivo (654 / 638)
+  const marcasCalzado = sortMarcasRetail(
+    marcasPorProveedor(allRows, 654),
+    MARCA_PREF_CALZADO,
+  )
+  const marcasConfecciones = sortMarcasRetail(
+    marcasPorProveedor(allRows, 638),
+    MARCA_PREF_CONFECCIONES,
+  )
 
   let rowsFiltradas = rowsForFacet(rowsBase, null, filtroMol)
 
@@ -234,7 +283,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
     ppd638.lpnPorTalle,
     pePrendasIndex,
   ).filter((p) => p.variantes.length > 0)
-  const productos = todos
+  const productos = sortProductosLRMC(todos)
 
   const totalUnidades = productos.reduce(
     (s, p) =>
@@ -249,25 +298,25 @@ export default async function CatalogoPage({ searchParams }: Props) {
         ? 'pares'
         : 'u'
 
-  return (
-    <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-      <aside className="w-full shrink-0 overflow-visible lg:sticky lg:top-20 lg:w-auto lg:max-w-md">
-        <Suspense>
-          <FiltrosCatalogo
-            marcas={facetas.marcas}
-            generos={facetas.generos}
-            estilos={facetas.estilos}
-            lineas={facetas.lineas}
-            materiales={facetas.materiales}
-            colores={facetas.colores}
-            totalModelos={productos.length}
-            totalUnidades={totalUnidades}
-            unidadLabel={unidadLabel}
-          />
-        </Suspense>
-      </aside>
+  const filtros = (
+    <Suspense>
+      <FiltrosCatalogo
+        marcasCalzado={marcasCalzado}
+        marcasConfecciones={marcasConfecciones}
+        generos={facetas.generos}
+        estilos={facetas.estilos}
+        lineas={facetas.lineas}
+        materiales={facetas.materiales}
+        colores={facetas.colores}
+        totalModelos={productos.length}
+        totalUnidades={totalUnidades}
+        unidadLabel={unidadLabel}
+      />
+    </Suspense>
+  )
 
-      <div className="min-w-0 flex-1">
+  return (
+    <CatalogoShell filters={filtros}>
         {productos.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center lg:py-40">
             <div
@@ -297,9 +346,45 @@ export default async function CatalogoPage({ searchParams }: Props) {
             ))}
           </div>
         )}
-      </div>
-    </div>
+    </CatalogoShell>
   )
+}
+
+/** Código proveedor numérico-aware (L·R·M·C) — 654 guiones · 638 L+C. */
+function cmpCodigoProveedor(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
+): number {
+  return String(a ?? '')
+    .trim()
+    .localeCompare(String(b ?? '').trim(), 'es', { numeric: true, sensitivity: 'base' })
+}
+
+function colorCodigoVariante(v: Variante): string | number | null | undefined {
+  return v.imagen_item.color_code ?? v.imagen_item.ppd_color_codigo ?? v.id_color_f9
+}
+
+/** Grilla catálogo: menor → mayor por L + R + M + C (ambos proveedores). */
+function sortProductosLRMC(productos: ProductoAgrupado[]): ProductoAgrupado[] {
+  for (const p of productos) {
+    p.variantes.sort((a, b) =>
+      cmpCodigoProveedor(colorCodigoVariante(a), colorCodigoVariante(b)),
+    )
+  }
+  return [...productos].sort((a, b) => {
+    let c = cmpCodigoProveedor(a.linea_codigo, b.linea_codigo)
+    if (c) return c
+    c = cmpCodigoProveedor(a.referencia_codigo, b.referencia_codigo)
+    if (c) return c
+    const ma = a.variantes[0]?.imagen_item.material_code
+    const mb = b.variantes[0]?.imagen_item.material_code
+    c = cmpCodigoProveedor(ma, mb)
+    if (c) return c
+    return cmpCodigoProveedor(
+      colorCodigoVariante(a.variantes[0]!),
+      colorCodigoVariante(b.variantes[0]!),
+    )
+  })
 }
 
 /* ─── Agrupación: linea + referencia + material → variantes de color ─── */
@@ -348,6 +433,7 @@ function agruparProductos(
     const colorKeyNum = item.color_id
     const colorMap = varMap.get(prodKey)!
     if (!colorMap.has(colorKeyNum)) {
+      // Paridad RIMEC Web agruparTarjetasCatalogo → enrichImagenUrls(imagenNombre: imagen_url)
       const imgs = enrichImagenUrlsFromStockItem(item)
       colorMap.set(colorKeyNum, {
         id_color_f9: colorKeyNum,

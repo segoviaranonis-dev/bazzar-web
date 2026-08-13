@@ -3,7 +3,7 @@
  * Submit → `/catalogo?q=` · autocomplete → `/api/search`
  */
 
-export const CATALOGO_SEARCH_PLACEHOLDER = 'L-R-M-C · marca · estilo…'
+export const CATALOGO_SEARCH_PLACEHOLDER = 'Marca, estilo o código…'
 
 export const CATALOGO_SEARCH_ARIA = 'Buscar en catálogo'
 
