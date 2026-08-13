@@ -199,21 +199,64 @@ export async function confirmarPagoSimulado(
     shopProcessId: string
   },
 ): Promise<{ ok: boolean; error?: string }> {
+  return confirmarPagoPedido(supabase, {
+    ...params,
+    proveedor: 'BANCARD_SIM',
+  })
+}
+
+/**
+ * Confirmación real (callback VPOS) o consulta get_confirmation.
+ * Idempotente si ya está PAGADO.
+ */
+export async function confirmarPagoPedido(
+  supabase: SupabaseClient,
+  params: {
+    pedidoId: number
+    amount: number
+    shopProcessId: string | number
+    proveedor?: 'BANCARD' | 'BANCARD_SIM'
+    authorizationNumber?: string | null
+  },
+): Promise<{ ok: boolean; already?: boolean; error?: string }> {
+  const { data: actual } = await supabase
+    .from('pedido_web')
+    .select('id, pago_estado, total')
+    .eq('id', params.pedidoId)
+    .maybeSingle()
+
+  if (!actual) return { ok: false, error: 'Pedido no encontrado' }
+  if (actual.pago_estado === 'PAGADO') return { ok: true, already: true }
+
+  const totalDb = Math.round(Number(actual.total) || 0)
+  const amount = Math.round(Number(params.amount) || 0)
+  if (amount > 0 && totalDb > 0 && amount !== totalDb) {
+    return {
+      ok: false,
+      error: `Monto confirm (${amount}) ≠ total pedido (${totalDb})`,
+    }
+  }
+
   const now = new Date().toISOString()
+  const ref = String(params.shopProcessId)
+  const auth = params.authorizationNumber
+    ? `AUTH:${params.authorizationNumber}`
+    : null
+
   const { error } = await supabase
     .from('pedido_web')
     .update({
       estado: 'CONFIRMADO',
       pago_estado: 'PAGADO',
-      pago_proveedor: 'BANCARD_SIM',
-      pago_ref_externa: params.shopProcessId,
-      pago_monto: params.amount,
+      pago_proveedor: params.proveedor ?? 'BANCARD',
+      pago_ref_externa: auth ? `${ref}|${auth}` : ref,
+      pago_monto: amount || totalDb,
       pago_moneda: 'PYG',
-      pago_iniciado_at: now,
       pago_confirmado_at: now,
       updated_at: now,
     })
     .eq('id', params.pedidoId)
+    .neq('pago_estado', 'PAGADO')
 
   if (error) return { ok: false, error: error.message }
   return { ok: true }

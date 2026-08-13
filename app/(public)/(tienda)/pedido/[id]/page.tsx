@@ -192,6 +192,7 @@ export default async function ConfirmacionPage({ params, searchParams }: Props) 
         total={Number(pedido.total) || 0}
         pagoEstado={pedido.pago_estado ?? null}
         autoIniciarPago={searchParams.pago === 'auto' || searchParams.pago === '1'}
+        pagoQuery={searchParams.pago ?? null}
       />
 
       <div className="flex flex-col sm:flex-row gap-3 mt-6">

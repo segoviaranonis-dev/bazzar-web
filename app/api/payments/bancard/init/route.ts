@@ -12,9 +12,9 @@ import {
 } from '@/lib/orden/puente-pago-entrega'
 
 /**
- * Inicia pago Bancard.
- * Sin credenciales (Laura): SIMULA pago confirmado para seguir el flujo de datos.
- * Con credenciales: redirect VPOS real.
+ * Inicia pago Bancard Single Buy.
+ * Sin keys → SIM (desarrollo / Laura pendiente).
+ * Con keys → process_id + script iframe (PCI: tarjeta solo en VPOS).
  */
 export async function POST(request: Request) {
   try {
@@ -62,9 +62,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Total de pedido inválido' }, { status: 400 })
     }
 
+    // Cliente no puede mandar otro monto: se ignora body.amount
     const shop_process_id = shopProcessIdForPedido(pedidoId)
 
-    // ── Simulación: sin keys Bancard → pago + confirmación para seguir datos ──
     if (!isBancardEnabled()) {
       const sim = await confirmarPagoSimulado(supabase, {
         pedidoId,
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
       amount,
       description: body.description ?? `Pedido Bazzar #${pedidoId}`,
       returnUrl: `${site}/pedido/${pedidoId}?t=${encodeURIComponent(token)}&pago=ok`,
-      cancelUrl: `${site}/checkout?pago=cancelado`,
+      cancelUrl: `${site}/pedido/${pedidoId}?t=${encodeURIComponent(token)}&pago=cancelado`,
     })
 
     await supabase
@@ -115,40 +115,38 @@ export async function POST(request: Request) {
       .update({
         pago_estado: 'INICIADO',
         pago_proveedor: 'BANCARD',
-        pago_ref_externa: shop_process_id,
+        pago_ref_externa: String(shop_process_id),
         pago_monto: amount,
         pago_moneda: 'PYG',
         pago_iniciado_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', pedidoId)
 
-    if ('status' in result && result.status === 'STANDBY') {
+    if (result.status === 'ERROR') {
       return NextResponse.json(
         {
-          status: 'STANDBY',
+          status: 'ERROR',
           error: result.error,
           security: result.security,
           shop_process_id: result.shop_process_id,
           amount,
           currency: 'PYG',
         },
-        { status: 503 },
+        { status: 502 },
       )
     }
 
-    if ('redirectUrl' in result) {
-      return NextResponse.json({
-        status: 'REDIRECT',
-        redirectUrl: result.redirectUrl,
-        shop_process_id: result.shop_process_id,
-        env: result.env,
-        amount,
-        currency: 'PYG',
-        security: BANCARD_SECURITY_CONTRACT,
-      })
-    }
-
-    return NextResponse.json({ error: 'Respuesta pasarela inesperada' }, { status: 500 })
+    return NextResponse.json({
+      status: 'IFRAME',
+      process_id: result.process_id,
+      shop_process_id: result.shop_process_id,
+      checkoutScriptUrl: result.checkoutScriptUrl,
+      env: result.env,
+      amount: result.amount,
+      currency: 'PYG',
+      security: BANCARD_SECURITY_CONTRACT,
+    })
   } catch (e) {
     console.error('[bancard/init]', e)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

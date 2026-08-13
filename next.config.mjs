@@ -23,15 +23,19 @@ const securityHeaders = [
     value: [
       "default-src 'self'",
       // OSM tiles mapa entrega + data: pin SVG
-      `img-src 'self' https://${SUPABASE_HOST} https://*.tile.openstreetmap.org https://tile.openstreetmap.org data: blob:`,
-      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST}`,
+      `img-src 'self' https://${SUPABASE_HOST} https://*.tile.openstreetmap.org https://tile.openstreetmap.org https://vpos.infonet.com.py data: blob:`,
+      // VPOS Bancard (iframe Single Buy) + Supabase
+      `connect-src 'self' https://${SUPABASE_HOST} wss://${SUPABASE_HOST} https://vpos.infonet.com.py https://vpos.infonet.com.py:8888`,
       "font-src 'self' data:",
       "object-src 'none'",
       "base-uri 'self'",
-      "form-action 'self'",
+      "form-action 'self' https://vpos.infonet.com.py https://vpos.infonet.com.py:8888",
       "frame-ancestors 'none'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      // Script + iframe checkout Bancard (PCI hospedado)
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vpos.infonet.com.py https://vpos.infonet.com.py:8888",
       "style-src 'self' 'unsafe-inline'",
+      "frame-src 'self' https://vpos.infonet.com.py https://vpos.infonet.com.py:8888",
+      "child-src 'self' https://vpos.infonet.com.py https://vpos.infonet.com.py:8888",
     ].join('; '),
   },
 ]
