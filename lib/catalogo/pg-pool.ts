@@ -1,16 +1,28 @@
 /**
  * Pool pg único para enrich de catálogo (estilo PE · PPD 638 · PRENDAS).
  * Evita connect/teardown por request (latencia dominante en filtros).
+ *
+ * Nota: tipos locales de `pg` solo exponen Client; Pool existe en runtime.
  */
 import pg from 'pg'
 
-let pool: pg.Pool | null = null
+type Queryable = {
+  query: <T extends Record<string, unknown> = Record<string, unknown>>(
+    text: string,
+    params?: unknown[],
+  ) => Promise<{ rows: T[] }>
+  on: (event: 'error', cb: (err: Error) => void) => void
+}
 
-export function getCatalogoPgPool(): pg.Pool | null {
+const PoolCtor = (pg as unknown as { Pool: new (cfg: object) => Queryable }).Pool
+
+let pool: Queryable | null = null
+
+export function getCatalogoPgPool(): Queryable | null {
   const url = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim()
   if (!url) return null
   if (!pool) {
-    pool = new pg.Pool({
+    pool = new PoolCtor({
       connectionString: url,
       ssl: { rejectUnauthorized: false },
       max: 4,
