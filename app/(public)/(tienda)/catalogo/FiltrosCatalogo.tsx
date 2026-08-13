@@ -1,6 +1,12 @@
 'use client'
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
+import {
+  useCallback,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactNode,
+} from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   parseTipoGruposParam,
@@ -50,6 +56,7 @@ export function FiltrosCatalogo({
 }: Props) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   const marcaActual = searchParams.get('marca') ?? ''
   const generoActual = searchParams.get('genero_id') ?? ''
@@ -127,7 +134,10 @@ export function FiltrosCatalogo({
       if (q.trim()) params.set('q', q.trim())
       if (ramo) params.set('ramo_tipo', ramo)
       if (tipos.length) params.set('tipo_grupos', tipos.join(','))
-      router.push(`/catalogo${params.toString() ? `?${params}` : ''}`)
+      const href = `/catalogo${params.toString() ? `?${params}` : ''}`
+      startTransition(() => {
+        router.push(href)
+      })
     },
     [
       marcaActual,
@@ -229,7 +239,13 @@ export function FiltrosCatalogo({
           : 'Catálogo'
 
   return (
-    <div className="flex w-full flex-col gap-4" aria-label="Filtros del catálogo">
+    <div
+      className={`flex w-full flex-col gap-4 transition-opacity ${
+        isPending ? 'opacity-70' : 'opacity-100'
+      }`}
+      aria-label="Filtros del catálogo"
+      aria-busy={isPending}
+    >
       <div>
         <h1 className="font-serif text-2xl font-bold tracking-tight" style={{ color: AZUL }}>
           {titulo}
@@ -240,11 +256,14 @@ export function FiltrosCatalogo({
           </span>
           {' · '}
           {totalUnidades.toLocaleString('es-PY')} {unidadLabel} · por talle
+          {isPending ? (
+            <span className="ml-1 font-medium text-slate-400">· actualizando…</span>
+          ) : null}
         </p>
         {dirty ? (
           <button
             type="button"
-            onClick={() => router.push('/catalogo')}
+            onClick={() => startTransition(() => router.push('/catalogo'))}
             className="mt-2 text-[11px] font-medium text-red-700 underline underline-offset-2 hover:text-red-900"
           >
             Limpiar filtros

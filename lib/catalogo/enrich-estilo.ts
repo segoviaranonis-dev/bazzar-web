@@ -3,8 +3,8 @@
  * Ley siamese (paridad auditoría 2.5.1.6.1 / Depósito Web):
  *   LR.grupo_estilo → linea.grupo_estilo → PE · rechaza OTROS / SIN ESTILO.
  */
-import pg from 'pg'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCatalogoPgPool } from '@/lib/catalogo/pg-pool'
 import type { StockWebItem } from '@/types/bazzar'
 
 const ESTILO_PLACEHOLDER = new Set(['OTROS', '(SIN ESTILO)', 'SIN ESTILO'])
@@ -67,14 +67,14 @@ export async function enrichEstiloDesdeLineaReferencia(
 
   // Fallback PE (misma ley que Report estadistica / deposito-web)
   const peByKey = new Map<string, { id: number | null; nombre: string }>()
-  const url = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim()
+  const pool = getCatalogoPgPool()
   const stillNeed = faltantes.filter((r) => {
     const hit =
       byLr.get(`${Number(r.linea_id)}|${Number(r.referencia_id)}`) ??
       byLinea.get(Number(r.linea_id))
     return !hit
   })
-  if (url && stillNeed.length > 0) {
+  if (pool && stillNeed.length > 0) {
     const pairs = Array.from(
       new Set(
         stillNeed.map(
@@ -84,13 +84,8 @@ export async function enrichEstiloDesdeLineaReferencia(
       ),
     ).filter((k) => k !== '|')
     if (pairs.length > 0) {
-      const client = new pg.Client({
-        connectionString: url,
-        ssl: { rejectUnauthorized: false },
-      })
       try {
-        await client.connect()
-        const { rows: peRows } = await client.query<{
+        const { rows: peRows } = await pool.query<{
           linea_codigo: string
           referencia_codigo: string
           pe_estilo: string
@@ -126,8 +121,6 @@ export async function enrichEstiloDesdeLineaReferencia(
         }
       } catch (e) {
         console.error('[enrich-estilo PE]', e instanceof Error ? e.message : e)
-      } finally {
-        await client.end().catch(() => undefined)
       }
     }
   }

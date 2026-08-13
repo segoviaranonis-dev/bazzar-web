@@ -5,13 +5,13 @@
  * Prohibido pintar talla_codigo ALM 34–39 como talle ropa.
  * Error 4.05.03.004 / Falta 1: no aplastar multi-LPN a un precio_web.
  */
-import pg from 'pg'
 import {
   esTalle638Canonico,
   parseGradaAbierta638,
   pareceCurvaCalzado654,
   sortTalle638Key,
 } from '@/lib/auditoria-local/grada638'
+import { getCatalogoPgPool } from '@/lib/catalogo/pg-pool'
 
 export type TallaCatalogo = {
   combinacion_id: number
@@ -78,22 +78,15 @@ function splitIntEqual(total: number, n: number): number[] {
   return out
 }
 
-function pgClient() {
-  const url = process.env.DATABASE_URL?.trim() || process.env.POSTGRES_URL?.trim()
-  if (!url) return null
-  return new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
-}
-
 /** Índice am_talle + LPN por talle (paridad precio×talle RIMEC). */
 export async function loadPpd638Enrich(lineas638: string[]): Promise<Ppd638Enrich> {
   const amTalles: PpdAmTalleIndex = new Map()
   const lpnPorTalle: PpdLpnPorTalleIndex = new Map()
   if (lineas638.length === 0) return { amTalles, lpnPorTalle }
-  const client = pgClient()
-  if (!client) return { amTalles, lpnPorTalle }
+  const pool = getCatalogoPgPool()
+  if (!pool) return { amTalles, lpnPorTalle }
   try {
-    await client.connect()
-    const { rows } = await client.query<PpdTalleRow>(
+    const { rows } = await pool.query<PpdTalleRow>(
       `
       SELECT
         TRIM(ppd.linea::text) AS linea,
@@ -136,8 +129,6 @@ export async function loadPpd638Enrich(lineas638: string[]): Promise<Ppd638Enric
     }
   } catch (e) {
     console.error('[enrich-grada-638]', e instanceof Error ? e.message : e)
-  } finally {
-    await client.end().catch(() => {})
   }
   return { amTalles, lpnPorTalle }
 }
@@ -277,11 +268,11 @@ export async function loadPePrendasAmTalleIndex(
   lineas?: string[],
 ): Promise<Map<string, string[]>> {
   const out = new Map<string, string[]>()
-  const client = pgClient()
-  if (!client) return out
+  if (lineas !== undefined && lineas.length === 0) return out
+  const pool = getCatalogoPgPool()
+  if (!pool) return out
   try {
-    await client.connect()
-    const { rows } = await client.query<PeGradaRow>(
+    const { rows } = await pool.query<PeGradaRow>(
       lineas?.length
         ? `
       SELECT DISTINCT
@@ -320,8 +311,6 @@ export async function loadPePrendasAmTalleIndex(
     }
   } catch (e) {
     console.error('[enrich-grada-pe-prendas]', e instanceof Error ? e.message : e)
-  } finally {
-    await client.end().catch(() => {})
   }
   return out
 }

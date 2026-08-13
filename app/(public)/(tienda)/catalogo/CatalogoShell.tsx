@@ -89,11 +89,12 @@ export function CatalogoShell({ filters, children }: Props) {
       {/* Móvil: filtros arriba, no flotantes */}
       <div className="border-b border-slate-100 px-4 py-4 lg:hidden">{filters}</div>
 
-      {/* Grilla: deja hueco al panel cuando está abierto */}
+      {/* Grilla: deja hueco al panel cuando está abierto · no opacity-0 (apagón >1s) */}
       <div
         className={`px-4 py-4 transition-[padding] duration-300 md:px-6 md:py-6 lg:pr-8 ${
           min ? 'lg:pl-16' : 'lg:pl-[318px]'
         }`}
+        data-catalogo-grid
       >
         {children}
       </div>

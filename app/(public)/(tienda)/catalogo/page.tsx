@@ -1,11 +1,9 @@
 import { Suspense } from 'react'
-import { createAdminClient } from '@/lib/supabase/admin'
 import type { StockWebItem } from '@/types/bazzar'
 import { ProductoCard, type ProductoAgrupado, type Variante, type Talla } from './ProductoCard'
 import { FiltrosCatalogo } from './FiltrosCatalogo'
 import { CatalogoShell } from './CatalogoShell'
 import { enrichImagenUrlsFromStockItem } from '@/lib/product-image'
-import { soloVendibleCatalogo } from '@/lib/catalogo-vendible'
 import { sortTallaCatalogo } from '@/lib/grada/sort-talla-canonico'
 import {
   aplicarPreciosPpdATallas638,
@@ -16,7 +14,7 @@ import {
   resolveAmTallesForProducto,
   type PpdLpnPorTalleIndex,
 } from '@/lib/catalogo/enrich-grada-638'
-import { enrichEstiloDesdeLineaReferencia } from '@/lib/catalogo/enrich-estilo'
+import { getCatalogoSnapshot } from '@/lib/catalogo/catalogo-snapshot'
 import {
   buildFacetasDesdeFilas,
   rowsForFacet,
@@ -30,43 +28,16 @@ import {
   type TipoGrupoId,
 } from '@/lib/filtros/filtro-tipo-canonico'
 
-/** Catálogo: datos vivos desde v_stock_web (evita ISR con marcas obsoletas / "—"). */
+/** Catálogo: snapshot TTL 30s (filtros <1s) · force-dynamic mantiene searchParams vivos. */
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-/** Columnas tipadas — select(*) con rol anon hace timeout en PostgREST (vista pesada). */
-const CATALOGO_SELECT = [
-  'combinacion_id',
-  'marca',
-  'linea_id',
-  'proveedor_importacion_id',
-  'linea_codigo',
-  'linea_descripcion',
-  'referencia_id',
-  'referencia_codigo',
-  'referencia_descripcion',
-  'material_id',
-  'material_code',
-  'material_descripcion',
-  'color_id',
-  'color_code',
-  'color_nombre',
-  'hex_web',
-  'ppd_color_codigo',
-  'imagen_url',
-  'talla_codigo',
-  'talla_orden',
-  'stock_web',
-  'precio_web',
-  'stock_sano_estado',
-  'stock_sano_caso',
-  'stock_sano_lpn',
-  'stock_sano_markup_pct',
-  'descp_grupo_estilo',
-  'grupo_estilo_id',
-  'genero_id',
-  'descp_genero',
-].join(',')
+/** Heurística sin round-trip: candidatas PRENDAS 654 (ACTVITTA / caso). */
+function esCandidataPrendas654(r: StockWebItem): boolean {
+  const caso = String(r.stock_sano_caso ?? '').toUpperCase()
+  const marca = String(r.marca ?? '').toUpperCase()
+  return caso.includes('PRENDA') || marca.includes('ACTVITTA')
+}
 
 interface Props {
   searchParams: {
@@ -125,6 +96,7 @@ function marcasPorProveedor(rows: StockWebItem[], proveedorId: number): string[]
 }
 
 export default async function CatalogoPage({ searchParams }: Props) {
+  const t0 = Date.now()
   const { marca: marcaFiltro, grupo_estilo: estiloFiltro, colores: coloresFiltroRaw } =
     searchParams
   const generoFiltro = Number(searchParams.genero_id)
@@ -142,34 +114,9 @@ export default async function CatalogoPage({ searchParams }: Props) {
     ramoFiltro || undefined,
   )
 
-  // service_role: anon/PostgREST hace statement timeout en v_stock_web (~930 filas).
-  const supabase = createAdminClient()
-  let query = supabase.from('v_stock_web').select(CATALOGO_SELECT)
-  query = soloVendibleCatalogo(query)
-  const { data, error } = await query
-
-  if (error) console.error('[catalogo]', error.message)
-
-  // Grilla menor→mayor L+R+M+C (654 y 638) — no por marca
-  const rawRows = ([...(data ?? [])] as unknown as StockWebItem[]).sort((a, b) => {
-    let c = cmpCodigoProveedor(a.linea_codigo, b.linea_codigo)
-    if (c) return c
-    c = cmpCodigoProveedor(a.referencia_codigo, b.referencia_codigo)
-    if (c) return c
-    c = cmpCodigoProveedor(
-      a.material_code ?? a.id_material_f9,
-      b.material_code ?? b.id_material_f9,
-    )
-    if (c) return c
-    c = cmpCodigoProveedor(
-      a.color_code ?? a.ppd_color_codigo ?? a.id_color_f9,
-      b.color_code ?? b.ppd_color_codigo ?? b.id_color_f9,
-    )
-    if (c) return c
-    return (Number(a.talla_orden) || 0) - (Number(b.talla_orden) || 0)
-  })
-  // 638: vista ciega de estilo → enriquecer desde linea_referencia (faceta ESTILO)
-  const allRows = await enrichEstiloDesdeLineaReferencia(rawRows)
+  const snap = await getCatalogoSnapshot()
+  const allRows = snap.rows
+  const tAfterSnap = Date.now()
 
   // Dimensiones base (ramo + tipo + Mario Bros) — universo de cascada
   let rowsBase = [...allRows]
@@ -255,6 +202,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
   )
 
   let rowsFiltradas = rowsForFacet(rowsBase, null, filtroMol)
+  const tAfterFilter = Date.now()
 
   const lineas638 = Array.from(
     new Set(
@@ -264,18 +212,26 @@ export default async function CatalogoPage({ searchParams }: Props) {
         .filter(Boolean),
     ),
   )
-  const lineas654 = Array.from(
+  const lineas654Prendas = Array.from(
     new Set(
       rowsFiltradas
-        .filter((r) => Number(r.proveedor_importacion_id) === 654)
+        .filter(
+          (r) =>
+            Number(r.proveedor_importacion_id) === 654 && esCandidataPrendas654(r),
+        )
         .map((r) => String(r.linea_codigo).trim())
         .filter(Boolean),
     ),
   )
   const [ppd638, pePrendasIndex] = await Promise.all([
-    loadPpd638Enrich(lineas638),
-    loadPePrendasAmTalleIndex(lineas654),
+    lineas638.length > 0
+      ? loadPpd638Enrich(lineas638)
+      : Promise.resolve({ amTalles: new Map(), lpnPorTalle: new Map() }),
+    lineas654Prendas.length > 0
+      ? loadPePrendasAmTalleIndex(lineas654Prendas)
+      : Promise.resolve(new Map<string, string[]>()),
   ])
+  const tAfterEnrich = Date.now()
 
   const todos = agruparProductos(
     rowsFiltradas,
@@ -284,6 +240,26 @@ export default async function CatalogoPage({ searchParams }: Props) {
     pePrendasIndex,
   ).filter((p) => p.variantes.length > 0)
   const productos = sortProductosLRMC(todos)
+  const tEnd = Date.now()
+
+  console.info(
+    '[catalogo-timing]',
+    JSON.stringify({
+      cacheHit: snap.cacheHit,
+      rows: snap.rowCount,
+      productos: productos.length,
+      lineas638: lineas638.length,
+      lineas654Pe: lineas654Prendas.length,
+      snapshot_ms: snap.ms,
+      filter_facet_ms: tAfterFilter - tAfterSnap,
+      enrich_grada_ms: tAfterEnrich - tAfterFilter,
+      agrupar_ms: tEnd - tAfterEnrich,
+      total_ms: tEnd - t0,
+      ramo: ramoFiltro || null,
+      marca: marcaFiltro || null,
+      estilo: estiloFiltro || null,
+    }),
+  )
 
   const totalUnidades = productos.reduce(
     (s, p) =>
