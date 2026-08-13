@@ -8,7 +8,7 @@ import ImagenPortada from '@/components/ImagenPortada'
  * Portadas oficiales son panorámicas (~2.8:1).
  * El hero respeta ese ratio a ANCHO COMPLETO — no un rectángulo alto que recorta logos.
  */
-/** Misma prioridad que fila 1 del Director */
+/** Hero: calzado premium + confecciones Kyly/Milon (portadas 2026-08-11) */
 const SLIDES = [
   {
     marca: 'VIZZANO',
@@ -24,6 +24,16 @@ const SLIDES = [
     marca: 'MODARE',
     line: 'Confort sofisticado',
     href: '/catalogo?marca=MODARE',
+  },
+  {
+    marca: 'KYLY',
+    line: 'Confecciones infantiles',
+    href: '/catalogo?marca=KYLY',
+  },
+  {
+    marca: 'MILON',
+    line: 'Estilo para peques',
+    href: '/catalogo?marca=MILON',
   },
 ]
 

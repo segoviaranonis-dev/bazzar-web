@@ -305,6 +305,14 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
   function handleAddTalla(talla: Talla) {
     const precioLinea =
       talla.precio_web != null && talla.precio_web > 0 ? talla.precio_web : p.precio_web
+    const imagenItem = {
+      ...variante.imagen_item,
+      imagen_url: variante.imagen_item.imagen_url ?? variante.imagen_url,
+    }
+    const cadena =
+      variante.imagen_candidates_thumb?.length
+        ? variante.imagen_candidates_thumb
+        : undefined
     addItem({
       key:                    `${p.key}-${variante.id_color_f9}-${talla.codigo}`,
       combinacion_id:         talla.combinacion_id,
@@ -318,7 +326,16 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
       material_descripcion:   p.material_descripcion,
       color_nombre:           variante.color_nombre,
       talla_codigo:           talla.codigo,
-      imagen_url:             productImageUrlFromStockItem(variante.imagen_item),
+      imagen_url:
+        variante.imagen_url ||
+        productImageUrlFromStockItem(imagenItem) ||
+        cadena?.[0] ||
+        '',
+      imagen_candidates:      cadena,
+      color_code:             imagenItem.color_code,
+      material_code:          imagenItem.material_code,
+      ppd_color_codigo:       imagenItem.ppd_color_codigo,
+      proveedor_importacion_id: imagenItem.proveedor_importacion_id ?? p.proveedor_importacion_id,
       precio_web:             precioLinea,
     })
     setFlash(talla.codigo)
