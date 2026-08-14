@@ -54,8 +54,7 @@ export function CartDrawer() {
           </div>
           <button
             onClick={() => setOpen(false)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg
-                       text-xl leading-none transition-colors hover:bg-white/10"
+            className="touch-target flex items-center justify-center rounded-lg text-xl leading-none transition-colors hover:bg-white/10"
             style={{ color: 'rgba(255,255,255,0.7)' }}
           >×</button>
         </div>
@@ -126,23 +125,23 @@ export function CartDrawer() {
                 <div className="flex flex-col items-end justify-between shrink-0">
                   <button
                     onClick={() => removeItem(item.key)}
-                    className="w-6 h-6 flex items-center justify-center rounded-lg
-                               text-slate-300 hover:text-red-400 hover:bg-red-50
-                               transition-colors text-lg leading-none"
+                    className="touch-target flex items-center justify-center rounded-lg
+                               text-slate-400 hover:text-red-400 hover:bg-red-50
+                               transition-colors text-xl leading-none"
                   >×</button>
-                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+                  <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1">
                     <button
                       onClick={() => updateQty(item.key, -1)}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-sm font-bold
+                      className="touch-target flex items-center justify-center rounded-md text-base font-bold
                                  hover:bg-white transition-colors"
                       style={{ color: NAVY }}
                     >−</button>
-                    <span className="text-sm font-bold w-5 text-center"
+                    <span className="text-sm font-bold min-w-[1.5rem] text-center"
                           style={{ color: NAVY }}>{item.cantidad}</span>
                     <button
                       onClick={() => updateQty(item.key, 1)}
                       disabled={item.cantidad >= item.stock_web}
-                      className="w-6 h-6 flex items-center justify-center rounded-md text-sm font-bold
+                      className="touch-target flex items-center justify-center rounded-md text-base font-bold
                                  hover:bg-white transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                       style={{ color: NAVY }}
                     >+</button>
@@ -198,7 +197,7 @@ export function CartButton() {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      className="relative p-2 text-neutral-800 transition hover:text-neutral-950"
+      className="touch-target relative flex items-center justify-center rounded-lg text-neutral-800 transition hover:text-neutral-950"
       aria-label={count > 0 ? `Ver pedido (${count})` : 'Ver pedido'}
     >
       <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">

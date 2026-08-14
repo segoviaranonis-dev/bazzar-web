@@ -192,8 +192,7 @@ export default function CheckoutPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
 
-        {/* ── Formulario ── */}
-        <form onSubmit={handleSubmit(onSubmit)} className="lg:col-span-3 space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="order-2 lg:order-1 lg:col-span-3 space-y-5">
 
           {/* ─ CÉDULA + AUTOCOMPLETE ─ */}
           <div className="bg-white rounded-2xl border border-slate-100 p-6 space-y-4"
@@ -268,7 +267,7 @@ export default function CheckoutPage() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="Nombre *" error={errors.nombre?.message}>
                 <input {...register('nombre')} className="input" placeholder="María" />
               </Field>
@@ -405,9 +404,9 @@ export default function CheckoutPage() {
           </button>
         </form>
 
-        {/* ── Resumen del pedido ── */}
-        <div className="lg:col-span-2">
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 sticky top-20"
+        {/* ── Resumen del pedido (primero en móvil) ── */}
+        <div className="order-1 lg:order-2 lg:col-span-2">
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 lg:sticky lg:top-20"
                style={{ boxShadow: '0 2px 8px rgba(30,58,95,0.07)' }}>
             <h2 className="font-bold text-base mb-4" style={{ color: '#1E3A5F' }}>
               Resumen <span className="text-slate-400 font-normal text-sm">({count} {count === 1 ? 'par' : 'pares'})</span>

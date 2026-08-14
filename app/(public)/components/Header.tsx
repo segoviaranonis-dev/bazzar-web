@@ -76,9 +76,9 @@ export default function Header({ data }: { data: HeaderData }) {
             />
           </Suspense>
 
-          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+          <div className="relative z-10 ml-auto flex shrink-0 items-center gap-0.5 sm:gap-2">
             <Suspense fallback={null}>
-              <HeaderNavMobile />
+              <MobileNavDrawer showAuditoriaLocal={data.showAuditoriaLocal} />
             </Suspense>
             <Suspense fallback={null}>
               <CatalogoSearchField variant="header" />
@@ -175,29 +175,107 @@ function HeaderNavCenter({
   )
 }
 
-function HeaderNavMobile() {
+function MobileNavDrawer({ showAuditoriaLocal }: { showAuditoriaLocal?: boolean }) {
+  const [open, setOpen] = useState(false)
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const items = HEADER_NAV_ITEMS.filter((i) =>
-    ['rebajas', 'caballeros', 'damas', 'catalogo'].includes(i.id),
-  )
+
+  useEffect(() => {
+    setOpen(false)
+  }, [pathname, searchParams])
+
+  useEffect(() => {
+    if (!open) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [open])
+
+  const items = [...HEADER_NAV_ITEMS]
 
   return (
-    <nav
-      className="flex max-w-[42vw] flex-wrap items-center justify-end gap-x-2.5 gap-y-0.5 overflow-visible md:hidden"
-      aria-label="Navegación móvil"
-    >
-      {items.map((item) => (
-        <NavLink
-          key={item.id}
-          href={item.href}
-          active={isHeaderNavActive(item, pathname, searchParams)}
-          prefetch
-        >
-          {item.label}
-        </NavLink>
-      ))}
-    </nav>
+    <>
+      <button
+        type="button"
+        className="touch-target flex items-center justify-center rounded-lg text-neutral-800 transition hover:bg-neutral-100 md:hidden"
+        aria-label="Abrir menú"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
+        <svg className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </button>
+
+      {open ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[60] bg-neutral-950/40 backdrop-blur-[1px] md:hidden"
+            aria-label="Cerrar menú"
+            onClick={() => setOpen(false)}
+          />
+          <nav
+            className="fixed inset-y-0 right-0 z-[70] flex w-[min(100vw,320px)] flex-col bg-white shadow-2xl md:hidden"
+            aria-label="Navegación móvil"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-center justify-between border-b border-neutral-100 px-4 py-3">
+              <span className="font-serif text-lg tracking-[0.06em] text-neutral-950">bazzar</span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="touch-target flex items-center justify-center rounded-lg text-2xl leading-none text-neutral-500"
+                aria-label="Cerrar menú"
+              >
+                ×
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  prefetch
+                  onClick={() => setOpen(false)}
+                  className={`mb-1 flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold uppercase tracking-[0.12em] transition ${
+                    isHeaderNavActive(item, pathname, searchParams)
+                      ? 'bg-neutral-950 text-white'
+                      : 'text-neutral-700 hover:bg-neutral-50'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              ))}
+              {showAuditoriaLocal ? (
+                <Link
+                  href="/auditoria-local"
+                  prefetch
+                  onClick={() => setOpen(false)}
+                  className="mb-1 flex min-h-11 items-center rounded-xl px-4 text-sm font-semibold uppercase tracking-[0.12em] text-neutral-600 hover:bg-neutral-50"
+                  title="Solo local · no deploy"
+                >
+                  Estadísticas
+                </Link>
+              ) : null}
+            </div>
+            <div className="safe-bottom shrink-0 border-t border-neutral-100 p-4">
+              <Link
+                href="/inicio"
+                prefetch
+                onClick={() => setOpen(false)}
+                className="flex min-h-11 items-center justify-center rounded-xl border border-neutral-200 text-sm font-semibold text-neutral-800"
+              >
+                Inicio
+              </Link>
+            </div>
+          </nav>
+        </>
+      ) : null}
+    </>
   )
 }
 

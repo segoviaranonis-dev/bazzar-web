@@ -169,7 +169,7 @@ function Lightbox({
           {/* Cerrar */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center
+            className="touch-target absolute top-3 right-3 flex items-center justify-center
                        rounded-full bg-white/90 hover:bg-white transition-colors shadow"
             style={{ color: '#64748b' }}
           >
@@ -183,7 +183,7 @@ function Lightbox({
             <>
               <button
                 onClick={prev}
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center
+                className="touch-target absolute left-3 top-1/2 flex -translate-y-1/2 items-center justify-center
                            rounded-full bg-white/90 hover:bg-white shadow transition-colors"
                 style={{ color: NAVY }}
               >
@@ -193,7 +193,7 @@ function Lightbox({
               </button>
               <button
                 onClick={next}
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center
+                className="touch-target absolute right-3 top-1/2 flex -translate-y-1/2 items-center justify-center
                            rounded-full bg-white/90 hover:bg-white shadow transition-colors"
                 style={{ color: NAVY }}
               >
@@ -256,17 +256,12 @@ function Lightbox({
                     key={v.id_color_f9}
                     onClick={() => setIdx(i)}
                     title={v.color_nombre}
+                    className="h-11 w-11 shrink-0 rounded-full border-2 shadow-sm transition active:scale-95"
                     style={{
-                      width: 22, height: 22,
-                      borderRadius: '50%',
                       backgroundColor: hex,
-                      border: isActive ? `2px solid ${ORANGE}` : '2px solid transparent',
+                      borderColor: isActive ? ORANGE : 'transparent',
                       outline: isActive ? `2px solid ${ORANGE}40` : '2px solid transparent',
                       outlineOffset: 1,
-                      transform: isActive ? 'scale(1.2)' : 'scale(1)',
-                      transition: 'all 0.15s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                      cursor: 'pointer',
                     }}
                   />
                 )
@@ -484,18 +479,13 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
                     key={v.id_color_f9}
                     onClick={() => setVarIdx(i)}
                     title={v.color_nombre}
+                    className="h-11 w-11 shrink-0 rounded-full border-2 shadow-sm transition active:scale-95"
                     style={{
-                      width: 20, height: 20,
-                      borderRadius: '50%',
                       backgroundColor: hex,
-                      border: isActive ? `2px solid ${ORANGE}` : '2px solid transparent',
+                      borderColor: isActive ? ORANGE : 'transparent',
                       outline: isActive ? `2px solid ${ORANGE}40` : '2px solid transparent',
                       outlineOffset: 1,
-                      transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                      transition: 'all 0.15s ease',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
-                      cursor: 'pointer',
-                      opacity: isActive ? 1 : 0.75,
+                      opacity: isActive ? 1 : 0.85,
                     }}
                   />
                 )
@@ -533,7 +523,7 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
                               ? `Agregar T ${etiqueta} · ${t.stock} ${unidad} · Gs. ${grupo.precio.toLocaleString('es-PY')}`
                               : 'Sin stock'
                           }
-                          className="inline-flex min-w-[2.25rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
+                          className="inline-flex min-h-11 min-w-[2.75rem] flex-col items-center justify-center rounded-md border px-2 py-1.5 transition active:scale-95"
                           style={{
                             borderColor: activa ? (hovered ? ORANGE : '#c4b5fd') : '#f1f5f9',
                             backgroundColor: activa
@@ -579,7 +569,7 @@ export function ProductoCard({ producto: p }: { producto: ProductoAgrupado }) {
                     onMouseEnter={() => activa && setHoveredTalla(t.codigo)}
                     onMouseLeave={() => setHoveredTalla(null)}
                     title={activa ? `Agregar ${t.codigo} · ${t.stock} ${unidad}` : 'Sin stock'}
-                    className="inline-flex min-w-[2rem] flex-col items-center rounded-md border px-1.5 py-0.5 transition"
+                    className="inline-flex min-h-11 min-w-[2.75rem] flex-col items-center justify-center rounded-md border px-2 py-1.5 transition active:scale-95"
                     style={{
                       borderColor: activa ? (hovered ? ORANGE : '#bfdbfe') : '#f1f5f9',
                       backgroundColor: activa

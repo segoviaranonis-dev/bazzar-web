@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import ImagenPortada from '@/components/ImagenPortada'
 
 /**
- * Portadas oficiales son panorámicas (~2.8:1).
- * El hero respeta ese ratio a ANCHO COMPLETO — no un rectángulo alto que recorta logos.
+ * Portadas oficiales son panorámicas (~2.8:1) en desktop.
+ * Móvil: altura mínima generosa + swipe/dots táctiles.
  */
 /** Hero: calzado premium + confecciones Kyly/Milon (portadas 2026-08-11) */
 const SLIDES = [
@@ -40,6 +40,7 @@ const SLIDES = [
 export default function HeroSlider() {
   const [current, setCurrent] = useState(0)
   const [fade, setFade] = useState(true)
+  const touchStartX = useRef<number | null>(null)
 
   const goTo = useCallback(
     (idx: number) => {
@@ -71,12 +72,21 @@ export default function HeroSlider() {
       className="relative w-full bg-neutral-950 select-none"
       aria-roledescription="carrusel"
       aria-label="Campañas de marca"
+      onTouchStart={(e) => {
+        touchStartX.current = e.changedTouches[0]?.clientX ?? null
+      }}
+      onTouchEnd={(e) => {
+        const start = touchStartX.current
+        if (start == null) return
+        const end = e.changedTouches[0]?.clientX ?? start
+        const delta = end - start
+        touchStartX.current = null
+        if (Math.abs(delta) < 48) return
+        if (delta < 0) next()
+        else prev()
+      }}
     >
-      {/* Ratio real de las portadas Storage (~6688×2362) */}
-      <div
-        className="relative w-full overflow-hidden"
-        style={{ aspectRatio: '2.83 / 1', minHeight: 220 }}
-      >
+      <div className="relative w-full min-h-[42vh] overflow-hidden md:aspect-[2.83/1] md:min-h-[220px]">
         <div
           className="absolute inset-0 transition-opacity duration-500"
           style={{ opacity: fade ? 1 : 0 }}
@@ -99,28 +109,28 @@ export default function HeroSlider() {
         />
 
         <div
-          className="absolute inset-0 z-10 flex flex-col justify-end px-5 pb-6 md:px-12 md:pb-10 lg:px-16"
+          className="absolute inset-0 z-10 flex flex-col justify-end px-5 pb-8 md:px-12 md:pb-10 lg:px-16"
           style={{
             opacity: fade ? 1 : 0,
             transition: 'opacity 0.4s ease',
           }}
         >
-          <p className="mb-2 text-[10px] font-medium uppercase tracking-[0.35em] text-white/50 md:text-[11px]">
+          <p className="mb-2 text-[11px] font-medium uppercase tracking-[0.35em] text-white/50 md:text-[11px]">
             {slide.marca}
           </p>
-          <p className="max-w-lg font-serif text-xl font-medium leading-snug text-white md:text-3xl lg:text-4xl">
+          <p className="max-w-lg font-serif text-2xl font-medium leading-snug text-white md:text-3xl lg:text-4xl">
             {slide.line}
           </p>
-          <div className="mt-5 flex flex-wrap items-center gap-5">
+          <div className="mt-5 flex flex-wrap items-center gap-4">
             <Link
               href={slide.href}
-              className="inline-flex bg-white px-7 py-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-neutral-950 transition hover:bg-neutral-100 md:text-[11px]"
+              className="inline-flex min-h-11 items-center bg-white px-7 py-3 text-[11px] font-semibold uppercase tracking-[0.22em] text-neutral-950 transition hover:bg-neutral-100"
             >
               Ver colección
             </Link>
             <Link
               href="/catalogo"
-              className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/75 underline-offset-4 hover:text-white hover:underline md:text-[11px]"
+              className="inline-flex min-h-11 items-center text-[11px] font-semibold uppercase tracking-[0.22em] text-white/75 underline-offset-4 hover:text-white hover:underline"
             >
               Catálogo
             </Link>
@@ -130,7 +140,7 @@ export default function HeroSlider() {
         <button
           type="button"
           onClick={prev}
-          className="absolute left-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/30 text-lg text-white/85 transition hover:border-white hover:text-white md:flex"
+          className="touch-target absolute left-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center border border-white/30 bg-black/20 text-lg text-white/90 backdrop-blur-sm transition hover:border-white hover:text-white md:left-3"
           aria-label="Anterior"
         >
           ‹
@@ -138,13 +148,13 @@ export default function HeroSlider() {
         <button
           type="button"
           onClick={next}
-          className="absolute right-3 top-1/2 z-20 hidden h-10 w-10 -translate-y-1/2 items-center justify-center border border-white/30 text-lg text-white/85 transition hover:border-white hover:text-white md:flex"
+          className="touch-target absolute right-2 top-1/2 z-20 flex -translate-y-1/2 items-center justify-center border border-white/30 bg-black/20 text-lg text-white/90 backdrop-blur-sm transition hover:border-white hover:text-white md:right-3"
           aria-label="Siguiente"
         >
           ›
         </button>
 
-        <div className="absolute bottom-5 right-5 z-20 flex gap-1.5 md:right-12">
+        <div className="absolute bottom-4 right-4 z-20 flex gap-1 md:bottom-5 md:right-12">
           {SLIDES.map((s, i) => (
             <button
               key={s.marca}
@@ -152,12 +162,16 @@ export default function HeroSlider() {
               onClick={() => goTo(i)}
               aria-label={s.marca}
               aria-current={i === current ? 'true' : undefined}
-              className="h-[2px] transition-all duration-300"
-              style={{
-                width: i === current ? 26 : 10,
-                background: i === current ? '#fff' : 'rgba(255,255,255,0.35)',
-              }}
-            />
+              className="touch-target flex items-center justify-center"
+            >
+              <span
+                className="block h-1 rounded-full transition-all duration-300"
+                style={{
+                  width: i === current ? 24 : 10,
+                  background: i === current ? '#fff' : 'rgba(255,255,255,0.35)',
+                }}
+              />
+            </button>
           ))}
         </div>
       </div>

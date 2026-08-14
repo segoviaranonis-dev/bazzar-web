@@ -51,40 +51,73 @@ function LongPressPin({
 }: {
   onPick: (lat: number, lng: number) => void
 }) {
+  const map = useMap()
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const start = useRef<{ x: number; y: number } | null>(null)
+
+  const clearTimer = () => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = null
+  }
+
+  const scheduleLongPress = (lat: number, lng: number, x: number, y: number) => {
+    start.current = { x, y }
+    clearTimer()
+    timer.current = setTimeout(() => {
+      onPick(lat, lng)
+    }, 450)
+  }
 
   useMapEvents({
     click(e) {
       onPick(e.latlng.lat, e.latlng.lng)
     },
     mousedown(e) {
-      start.current = { x: e.containerPoint.x, y: e.containerPoint.y }
-      if (timer.current) clearTimeout(timer.current)
-      timer.current = setTimeout(() => {
-        onPick(e.latlng.lat, e.latlng.lng)
-      }, 450)
+      scheduleLongPress(e.latlng.lat, e.latlng.lng, e.containerPoint.x, e.containerPoint.y)
     },
-    mouseup() {
-      if (timer.current) clearTimeout(timer.current)
-      timer.current = null
-    },
+    mouseup: clearTimer,
     mousemove(e) {
       if (!start.current || !timer.current) return
       const dx = Math.abs(e.containerPoint.x - start.current.x)
       const dy = Math.abs(e.containerPoint.y - start.current.y)
-      if (dx + dy > 12) {
-        clearTimeout(timer.current)
-        timer.current = null
-      }
+      if (dx + dy > 12) clearTimer()
     },
   })
 
   useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current)
+    const el = map.getContainer()
+
+    const onTouchStart = (ev: TouchEvent) => {
+      const t = ev.touches[0]
+      if (!t) return
+      const rect = el.getBoundingClientRect()
+      const pt = L.point(t.clientX - rect.left, t.clientY - rect.top)
+      const latlng = map.containerPointToLatLng(pt)
+      scheduleLongPress(latlng.lat, latlng.lng, t.clientX, t.clientY)
     }
-  }, [])
+
+    const onTouchMove = (ev: TouchEvent) => {
+      if (!start.current || !timer.current) return
+      const t = ev.touches[0]
+      if (!t) return
+      const dx = Math.abs(t.clientX - start.current.x)
+      const dy = Math.abs(t.clientY - start.current.y)
+      if (dx + dy > 12) clearTimer()
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: true })
+    el.addEventListener('touchend', clearTimer)
+    el.addEventListener('touchcancel', clearTimer)
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', clearTimer)
+      el.removeEventListener('touchcancel', clearTimer)
+      clearTimer()
+    }
+  }, [map, onPick])
 
   return null
 }
@@ -195,7 +228,7 @@ export function MapaEntregaInner({ initial, onConfirm, onClose }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="w-9 h-9 rounded-lg text-white/80 hover:bg-white/10 text-xl leading-none"
+          className="touch-target flex items-center justify-center rounded-lg text-white/80 hover:bg-white/10 text-xl leading-none"
         >
           ×
         </button>
@@ -215,7 +248,7 @@ export function MapaEntregaInner({ initial, onConfirm, onClose }: Props) {
                 <li key={s.id}>
                   <button
                     type="button"
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-sky-50 border-b border-slate-50 last:border-0"
+                    className="w-full min-h-11 text-left px-3 py-2.5 text-xs hover:bg-sky-50 border-b border-slate-50 last:border-0"
                     onClick={() => {
                       setQ(s.label)
                       setSugerencias([])

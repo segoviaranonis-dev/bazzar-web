@@ -316,7 +316,7 @@ export default async function CatalogoPage({ searchParams }: Props) {
             </a>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
             {productos.map((p) => (
               <ProductoCard key={p.key} producto={p} />
             ))}

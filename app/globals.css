@@ -7,6 +7,21 @@ body {
   background: #FAFAFA; /* Off-white for elegance */
   font-family: var(--font-sans), sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Área segura iOS (notch / home indicator) */
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+.safe-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+
+/* Touch target mínimo 44×44px (accesibilidad móvil) */
+.touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
 }
 
 /* Sin barras de scroll visibles (header / filtros / mega) */

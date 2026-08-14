@@ -327,7 +327,7 @@ export function FiltrosCatalogo({
         <button
           type="button"
           onClick={() => setOpenEstilos((v) => !v)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left"
+          className="flex w-full min-h-11 items-center justify-between px-4 py-3 text-left"
           aria-expanded={openEstilos}
         >
           <span className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: AZUL }}>
@@ -361,7 +361,7 @@ export function FiltrosCatalogo({
                             clearDesde: 'estilo',
                           })
                         }
-                        className={`w-full rounded-lg px-3 py-2 text-left text-[13px] capitalize transition ${
+                        className={`w-full min-h-11 rounded-lg px-3 py-2.5 text-left text-[13px] capitalize transition ${
                           on
                             ? 'border border-slate-300 bg-white font-semibold text-slate-900 shadow-sm'
                             : 'border border-transparent text-slate-700 hover:bg-slate-50'
@@ -401,7 +401,7 @@ function RamoAcordeon({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+        className="flex w-full min-h-11 items-center justify-between px-4 py-3.5 text-left"
         aria-expanded={open}
       >
         <span
@@ -432,7 +432,7 @@ function MarcaItem({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-lg px-3 py-2 text-left text-[13px] uppercase tracking-wide transition ${
+      className={`w-full min-h-11 rounded-lg px-3 py-2.5 text-left text-[13px] uppercase tracking-wide transition ${
         selected
           ? 'border border-slate-300 bg-white font-semibold text-slate-900 shadow-sm'
           : 'border border-transparent text-slate-700 hover:bg-slate-50'

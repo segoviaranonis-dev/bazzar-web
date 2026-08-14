@@ -82,7 +82,7 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
 
   const inputClass =
     variant === 'header'
-      ? 'w-44 border-0 border-b border-neutral-300 bg-transparent px-1 py-1.5 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none sm:w-56'
+      ? 'w-full min-w-0 flex-1 border-0 border-b border-neutral-300 bg-transparent px-1 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-950 focus:outline-none md:w-44 md:flex-none md:text-xs md:py-1.5 lg:w-56'
       : 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:border-[#1E3A5F] focus:outline-none focus:ring-2 focus:ring-[#1E3A5F]/20'
 
   if (variant === 'header' && !open) {
@@ -94,7 +94,7 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
           setQuery(qUrl)
         }}
         aria-label={CATALOGO_SEARCH_ARIA}
-        className="p-2 text-neutral-800 transition hover:text-neutral-950"
+        className="touch-target flex items-center justify-center rounded-lg text-neutral-800 transition hover:text-neutral-950"
       >
         <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
           <path
@@ -107,8 +107,8 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
     )
   }
 
-  return (
-    <div className={variant === 'sidebar' ? 'relative block space-y-1' : 'relative'}>
+  const formBlock = (
+    <div className={variant === 'sidebar' ? 'relative block space-y-1' : 'relative w-full'}>
       {variant === 'sidebar' ? (
         <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
           Buscar
@@ -119,7 +119,7 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
           e.preventDefault()
           applyQ(query)
         }}
-        className={variant === 'header' ? 'flex items-center gap-2' : 'block'}
+        className={variant === 'header' ? 'flex w-full items-center gap-2' : 'block'}
       >
         <input
           autoFocus={variant === 'header'}
@@ -128,7 +128,6 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
           onChange={(e) => handleChange(e.target.value)}
           onBlur={() => {
             if (variant !== 'sidebar') return
-            // Diferir: permite click en sugerencia antes de aplicar q
             window.setTimeout(() => {
               if (query !== qUrl) applyQ(query)
             }, 180)
@@ -141,7 +140,7 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
           <button
             type="button"
             onClick={closeHeader}
-            className="text-lg leading-none text-neutral-400 hover:text-neutral-800"
+            className="touch-target flex shrink-0 items-center justify-center text-2xl leading-none text-neutral-400 hover:text-neutral-800"
             aria-label="Cerrar búsqueda"
           >
             ×
@@ -186,4 +185,29 @@ export function CatalogoSearchField({ variant, onApplyQ }: Props) {
       )}
     </div>
   )
+
+  if (variant === 'header') {
+    return (
+      <>
+        <div className="hidden md:block">{formBlock}</div>
+        <div className="md:hidden">
+          {open ? (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-[55] bg-neutral-950/30"
+                aria-label="Cerrar búsqueda"
+                onClick={closeHeader}
+              />
+              <div className="fixed inset-x-0 top-16 z-[56] border-b border-neutral-200 bg-white px-4 py-3 shadow-lg safe-top">
+                {formBlock}
+              </div>
+            </>
+          ) : null}
+        </div>
+      </>
+    )
+  }
+
+  return formBlock
 }

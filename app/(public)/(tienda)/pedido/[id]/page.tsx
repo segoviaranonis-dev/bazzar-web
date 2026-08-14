@@ -110,7 +110,7 @@ export default async function ConfirmacionPage({ params, searchParams }: Props) 
           </div>
         </div>
 
-        <div className="px-6 py-4 border-b border-slate-100 grid grid-cols-2 gap-4">
+        <div className="px-6 py-4 border-b border-slate-100 grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <p className="text-[10px] text-slate-400 uppercase font-semibold tracking-wider">Cliente</p>
             <p className="text-sm font-semibold" style={{ color: '#1E3A5F' }}>{pedido.cliente_nombre}</p>
